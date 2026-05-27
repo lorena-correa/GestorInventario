@@ -485,15 +485,15 @@ namespace GestorInventario.Repositories
                                m.cantidad, m.observacion,
                                COALESCE(u.nombre,'') AS usuario,
                                COALESCE(pr.nombre,'') AS proveedor,
-                               m.NombreProducto_id, m.tipo_movimiento_id
+                               m.producto_id, m.tipo_movimiento_id
                         FROM tb_movimientos_inventario m
-                        JOIN tb_productos p ON m.NombreProducto_id = p.id
+                        JOIN tb_productos p ON m.producto_id = p.id
                         JOIN tb_tipo_movimiento tm ON m.tipo_movimiento_id = tm.id
-                        LEFT JOIN tb_usuarios u ON m.NombreUsuario_id = u.id
+                        LEFT JOIN tb_usuarios u ON m.usuario_id = u.id
                         LEFT JOIN tb_proveedores pr ON m.Proveedor_id = pr.id
                         WHERE 1=1";
 
-            if (productoId.HasValue) sql += " AND m.NombreProducto_id = @prod";
+            if (productoId.HasValue) sql += " AND m.producto_id = @prod";
             if (tipoId.HasValue) sql += " AND m.tipo_movimiento_id = @tipo";
             if (desde.HasValue) sql += " AND m.fecha >= @desde";
             if (hasta.HasValue) sql += " AND m.fecha <= @hasta";
@@ -560,7 +560,7 @@ namespace GestorInventario.Repositories
                          (p.stock_minimo - p.stock_actual) AS faltantes,
                          a.estado, a.creado_en
                   FROM tb_alertas a
-                  JOIN tb_productos p ON a.NombreProducto_id = p.id
+                  JOIN tb_productos p ON a.producto_id = p.id
                   WHERE a.estado = 'Activa'
                   ORDER BY faltantes DESC", conn);
             using var reader = cmd.ExecuteReader();
