@@ -158,28 +158,80 @@ namespace GestorInventario.Forms
 
         private void BtnGuardar_Click(object? sender, EventArgs e)
         {
-            if (string.IsNullOrWhiteSpace(txtCodigo.Text) || string.IsNullOrWhiteSpace(txtNombre.Text))
+            // ── Validaciones ────────────────────────────────────────
+            if (string.IsNullOrWhiteSpace(txtCodigo.Text) ||
+                string.IsNullOrWhiteSpace(txtNombre.Text))
             {
-                MessageBox.Show("Código y Nombre son obligatorios.", "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Código y Nombre son obligatorios.",
+                    "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
+            if (!decimal.TryParse(txtPrecioVenta.Text, out decimal pv) || pv <= 0)
+            {
+                MessageBox.Show("El precio de venta debe ser un número mayor a cero.",
+                    "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                txtPrecioVenta.Focus();
+                return;
+            }
+
+            if (!decimal.TryParse(txtPrecioCompra.Text, out decimal pc) || pc < 0)
+            {
+                MessageBox.Show("El precio de compra no puede ser negativo.",
+                    "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                txtPrecioCompra.Focus();
+                return;
+            }
+
+            if (!int.TryParse(txtStockInicial.Text, out int si) || si < 0)
+            {
+                MessageBox.Show("El stock inicial no puede ser negativo.",
+                    "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                txtStockInicial.Focus();
+                return;
+            }
+
+            if (!int.TryParse(txtStockMinimo.Text, out int sm) || sm < 0)
+            {
+                MessageBox.Show("El stock mínimo no puede ser negativo.",
+                    "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                txtStockMinimo.Focus();
+                return;
+            }
+
+            // ── Construir objeto ────────────────────────────────────
             var producto = _isEdit ? _product! : new Producto();
-            producto.Codigo = txtCodigo.Text.Trim();
+            producto.Codigo = txtCodigo.Text.Trim().ToUpper();
             producto.Nombre = txtNombre.Text.Trim();
             producto.Descripcion = txtDescripcion.Text.Trim();
-            decimal.TryParse(txtPrecioCompra.Text, out decimal pc); producto.PrecioCompra = pc;
-            decimal.TryParse(txtPrecioVenta.Text, out decimal pv); producto.PrecioVenta = pv;
-            int.TryParse(txtStockInicial.Text, out int si); producto.StockActual = si;
-            int.TryParse(txtStockMinimo.Text, out int sm); producto.StockMinimo = sm;
+            producto.PrecioCompra = pc;
+            producto.PrecioVenta = pv;
+            producto.StockActual = si;
+            producto.StockMinimo = sm;
             producto.Categoria = cboCategoria.SelectedItem?.ToString() ?? "";
-            producto.Proveedor = cboProveedor.SelectedItem?.ToString() ?? "";
             producto.Activo = cboEstado.SelectedItem?.ToString() == "Activo";
 
-            _service.Guardar(producto);
-            MessageBox.Show("Producto guardado correctamente.", "Éxito", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            Saved?.Invoke();
-            Close();
+            // Buscar ProveedorId por nombre seleccionado
+            var proveedores = _provService.ObtenerTodos();
+            var provSeleccionado = proveedores.Find(p =>
+                p.Nombre == cboProveedor.SelectedItem?.ToString());
+            producto.ProveedorId = provSeleccionado?.Id ?? 0;
+            producto.Proveedor = provSeleccionado?.Nombre ?? "";
+
+            // ── Guardar ─────────────────────────────────────────────
+            try
+            {
+                _service.Guardar(producto);
+                MessageBox.Show("Producto guardado correctamente.",
+                    "Éxito", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                Saved?.Invoke();
+                Close();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Error al guardar",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
     }
 }

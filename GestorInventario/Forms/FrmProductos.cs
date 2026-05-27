@@ -131,31 +131,38 @@ namespace GestorInventario.Forms
 
         private void LoadData(string search = "")
         {
-            var productos = string.IsNullOrEmpty(search)
-                ? _service.ObtenerTodos()
-                : _service.Buscar(search);
-
-            dgvProductos.Rows.Clear();
-            foreach (var p in productos)
+            try
             {
-                int r = dgvProductos.Rows.Add(
-                    p.Codigo, p.Nombre, p.Categoria, p.Proveedor,
-                    $"${p.PrecioVenta:N0}",
-                    p.StockActual,
-                    p.StockMinimo,
-                    p.Activo ? "Activo" : "Inactivo");
-                dgvProductos.Rows[r].Tag = p;
+                var productos = string.IsNullOrEmpty(search)
+                    ? _service.ObtenerTodos()
+                    : _service.Buscar(search);
 
-                // Color critical stock
-                if (p.StockActual <= p.StockMinimo)
+                dgvProductos.Rows.Clear();
+                foreach (var p in productos)
                 {
-                    dgvProductos.Rows[r].Cells["Stock"].Style.ForeColor = AppColors.Danger;
-                    dgvProductos.Rows[r].Cells["Stock"].Style.Font = AppFonts.BodyBold;
-                }
-            }
+                    int r = dgvProductos.Rows.Add(
+                        p.Codigo, p.Nombre, p.Categoria, p.Proveedor,
+                        $"${p.PrecioVenta:N0}",
+                        p.StockActual,
+                        p.StockMinimo,
+                        p.Activo ? "Activo" : "Inactivo");
+                    dgvProductos.Rows[r].Tag = p;
 
-            if (Controls["lblCount"] is Label lbl)
-                lbl.Text = $"{productos.Count} producto(s) encontrado(s)";
+                    if (p.StockActual <= p.StockMinimo)
+                    {
+                        dgvProductos.Rows[r].Cells["Stock"].Style.ForeColor = AppColors.Danger;
+                        dgvProductos.Rows[r].Cells["Stock"].Style.Font = AppFonts.BodyBold;
+                    }
+                }
+
+                if (Controls["lblCount"] is Label lbl)
+                    lbl.Text = $"{productos.Count} producto(s) encontrado(s)";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error al cargar productos: {ex.Message}",
+                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         private void OpenProductForm(Producto? product)
@@ -168,12 +175,22 @@ namespace GestorInventario.Forms
         private void ConfirmDelete()
         {
             if (MessageBox.Show($"¿Eliminar el producto \"{_selectedProduct!.Nombre}\"?",
-                "Confirmar eliminación", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
+                "Confirmar eliminación", MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning) == DialogResult.Yes)
             {
-                _service.Eliminar(_selectedProduct.Id);
-                _selectedProduct = null;
-                LoadData();
-                MessageBox.Show("Producto eliminado correctamente.", "Éxito", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                try
+                {
+                    _service.Eliminar(_selectedProduct.Id);
+                    _selectedProduct = null;
+                    LoadData();
+                    MessageBox.Show("Producto eliminado correctamente.",
+                        "Éxito", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error al eliminar: {ex.Message}",
+                        "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
             }
         }
 

@@ -1,11 +1,9 @@
 using GestorInventario.Models;
 using GestorInventario.Repositories;
-using System;
-using System.Collections.Generic;
 
 namespace GestorInventario.Services
 {
-    /// <summary>
+    
     /// Authentication service — connect to PostgreSQL via AuthRepository.
     /// </summary>
     public class AuthService
@@ -50,32 +48,82 @@ namespace GestorInventario.Services
         }
     }
 
-    /// <summary>
-    /// Product service — connect to PostgreSQL via ProductoRepository.
-    /// </summary>
+    
+    /// Product service — connecta con PostgreSQL via ProductoRepository :3
     public class ProductoService
     {
-        // TODO: inject ProductoRepository
-        public List<Producto> ObtenerTodos() => DemoData.Productos;
-        public List<Producto> Buscar(string termino) =>
-            DemoData.Productos.FindAll(p =>
-                p.Nombre.Contains(termino, StringComparison.OrdinalIgnoreCase) ||
-                p.Codigo.Contains(termino, StringComparison.OrdinalIgnoreCase));
-        public bool Guardar(Producto p) { DemoData.Productos.Add(p); return true; }
-        public bool Eliminar(int id) { DemoData.Productos.RemoveAll(p => p.Id == id); return true; }
+        private readonly ProductoRepository _repo = new();
+
+        public List<Producto> ObtenerTodos()
+        {
+            try { return _repo.GetAll(); }
+            catch (Exception ex) { throw new Exception($"Error al obtener productos: {ex.Message}"); }
+        }
+
+        public List<Producto> Buscar(string termino)
+        {
+            try { return _repo.Search(termino); }
+            catch (Exception ex) { throw new Exception($"Error al buscar productos: {ex.Message}"); }
+        }
+
+        public bool Guardar(Producto p)
+        {
+            try
+            {
+                if (p.Id == 0) return _repo.Create(p);
+                else return _repo.Update(p);
+            }
+            catch (Exception ex) { throw new Exception(ex.Message); }
+        }
+
+        public bool Eliminar(int id)
+        {
+            try { return _repo.Delete(id); }
+            catch (Exception ex) { throw new Exception($"Error al eliminar producto: {ex.Message}"); }
+        }
+
+        public List<Producto> ObtenerCriticos()
+        {
+            try { return _repo.GetCriticos(); }
+            catch (Exception ex) { throw new Exception($"Error al obtener críticos: {ex.Message}"); }
+        }
     }
 
-    /// <summary>
     /// Supplier service — connect to PostgreSQL via ProveedorRepository.
-    /// </summary>
     public class ProveedorService
     {
-        public List<Proveedor> ObtenerTodos() => DemoData.Proveedores;
-        public bool Guardar(Proveedor p) { DemoData.Proveedores.Add(p); return true; }
-        public bool Eliminar(int id) { DemoData.Proveedores.RemoveAll(p => p.Id == id); return true; }
+        private readonly ProveedorRepository _repo = new();
+
+        public List<Proveedor> ObtenerTodos()
+        {
+            try { return _repo.GetAll(); }
+            catch (Exception ex) { throw new Exception($"Error al obtener proveedores: {ex.Message}"); }
+        }
+
+        public List<Proveedor> Buscar(string termino)
+        {
+            try { return _repo.Search(termino); }
+            catch (Exception ex) { throw new Exception($"Error al buscar proveedores: {ex.Message}"); }
+        }
+
+        public bool Guardar(Proveedor p)
+        {
+            try
+            {
+                if (p.Id == 0) return _repo.Create(p);
+                else return _repo.Update(p);
+            }
+            catch (Exception ex) { throw new Exception(ex.Message); }
+        }
+
+        public bool Eliminar(int id)
+        {
+            try { return _repo.Delete(id); }
+            catch (Exception ex) { throw new Exception($"Error al eliminar proveedor: {ex.Message}"); }
+        }
     }
 
-    /// <summary>
+    
     /// Inventory movement service.
     /// </summary>
     public class MovimientoService
@@ -85,7 +133,7 @@ namespace GestorInventario.Services
         public bool RegistrarSalida(Movimiento m) { DemoData.Movimientos.Add(m); return true; }
     }
 
-    /// <summary>
+    
     /// Dashboard statistics service.
     /// </summary>
     public class DashboardService
@@ -101,7 +149,7 @@ namespace GestorInventario.Services
         };
     }
 
-    /// <summary>
+    
     /// Alert service.
     /// </summary>
     public class AlertaService
