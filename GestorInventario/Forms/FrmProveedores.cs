@@ -73,12 +73,25 @@ namespace GestorInventario.Forms
 
         private void LoadData(string search = "")
         {
-            dgvProveedores.Rows.Clear();
-            foreach (var p in _service.ObtenerTodos())
+            try
             {
-                if (!string.IsNullOrEmpty(search) && !p.Nombre.Contains(search, StringComparison.OrdinalIgnoreCase)) continue;
-                int r = dgvProveedores.Rows.Add(p.Nombre, p.Telefono, p.Correo, p.Direccion, p.Activo ? "Activo" : "Inactivo");
-                dgvProveedores.Rows[r].Tag = p;
+                var proveedores = string.IsNullOrEmpty(search)
+                    ? _service.ObtenerTodos()
+                    : _service.Buscar(search);
+
+                dgvProveedores.Rows.Clear();
+                foreach (var p in proveedores)
+                {
+                    int r = dgvProveedores.Rows.Add(
+                        p.Nombre, p.Telefono, p.Correo,
+                        p.Direccion, p.Activo ? "Activo" : "Inactivo");
+                    dgvProveedores.Rows[r].Tag = p;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error al cargar proveedores: {ex.Message}",
+                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -91,11 +104,23 @@ namespace GestorInventario.Forms
 
         private void DeleteSelected()
         {
-            if (MessageBox.Show($"¿Eliminar proveedor \"{_selected!.Nombre}\"?", "Confirmar", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
+            if (MessageBox.Show($"¿Eliminar proveedor \"{_selected!.Nombre}\"?",
+                "Confirmar", MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning) == DialogResult.Yes)
             {
-                _service.Eliminar(_selected.Id);
-                _selected = null;
-                LoadData();
+                try
+                {
+                    _service.Eliminar(_selected.Id);
+                    _selected = null;
+                    LoadData();
+                    MessageBox.Show("Proveedor eliminado correctamente.",
+                        "Éxito", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error al eliminar: {ex.Message}",
+                        "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
             }
         }
 
@@ -171,9 +196,20 @@ namespace GestorInventario.Forms
         {
             if (string.IsNullOrWhiteSpace(txtNombre.Text))
             {
-                MessageBox.Show("El nombre del proveedor es obligatorio.", "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("El nombre del proveedor es obligatorio.",
+                    "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                txtNombre.Focus();
                 return;
             }
+
+            if (!string.IsNullOrEmpty(txtCorreo.Text) && !txtCorreo.Text.Contains('@'))
+            {
+                MessageBox.Show("El correo electrónico no es válido.",
+                    "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                txtCorreo.Focus();
+                return;
+            }
+
             var p = _isEdit ? _proveedor! : new Proveedor();
             p.Nombre = txtNombre.Text.Trim();
             p.Telefono = txtTelefono.Text.Trim();
@@ -181,10 +217,19 @@ namespace GestorInventario.Forms
             p.Direccion = txtDireccion.Text.Trim();
             p.Activo = true;
 
-            _service.Guardar(p);
-            MessageBox.Show("Proveedor guardado correctamente.", "Éxito", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            Saved?.Invoke();
-            Close();
+            try
+            {
+                _service.Guardar(p);
+                MessageBox.Show("Proveedor guardado correctamente.",
+                    "Éxito", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                Saved?.Invoke();
+                Close();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Error al guardar",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
     }
 }
