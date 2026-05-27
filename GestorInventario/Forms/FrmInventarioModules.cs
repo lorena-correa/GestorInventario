@@ -28,32 +28,39 @@ namespace GestorInventario.Forms
         private void BuildUI()
         {
             SuspendLayout();
-            var stats = _dashService.ObtenerEstadisticas();
+
+            DashboardStats stats;
+            try { stats = _dashService.ObtenerEstadisticas(); }
+            catch { stats = new DashboardStats(); }
 
             // Summary cards
             var cards = new[]
             {
-                ("🗄️", "Total en Inventario", stats.TotalProductos.ToString(), AppColors.Primary),
-                ("⚠️", "Productos Críticos", stats.ProductosCriticos.ToString(), AppColors.Danger),
-                ("💰", "Valor Estimado", $"${stats.ValorInventario:N0}", AppColors.Success),
+                ("🗄️", "Total en Inventario", stats.TotalProductos.ToString(),  AppColors.Primary),
+                ("⚠️",  "Productos Críticos",  stats.ProductosCriticos.ToString(), AppColors.Danger),
+                ("💰", "Valor Estimado",       $"${stats.ValorInventario:N0}",   AppColors.Success),
             };
 
             int cx = 24, cy = 24;
             foreach (var (icon, label, value, color) in cards)
             {
                 var card = new CardPanel { Location = new Point(cx, cy), Size = new Size(260, 100) };
+                var capIcon = icon;
+                var capLabel = label;
+                var capValue = value;
+                var capColor = color;
                 card.Paint += (s, e) =>
                 {
                     var g = e.Graphics;
                     g.SmoothingMode = SmoothingMode.AntiAlias;
-                    using var ab = new SolidBrush(Color.FromArgb(20, color));
+                    using var ab = new SolidBrush(Color.FromArgb(20, capColor));
                     g.FillEllipse(ab, card.Width - 60, 14, 44, 44);
                     using var ef = new Font("Segoe UI Emoji", 18f);
-                    g.DrawString(icon, ef, new SolidBrush(color), card.Width - 56, 17);
+                    g.DrawString(capIcon, ef, new SolidBrush(capColor), card.Width - 56, 17);
                     using var vf = new Font("Segoe UI", 22f, FontStyle.Bold);
-                    g.DrawString(value, vf, new SolidBrush(AppColors.TextPrimary), new Point(16, 16));
+                    g.DrawString(capValue, vf, new SolidBrush(AppColors.TextPrimary), new Point(16, 16));
                     using var lf = AppFonts.BodyBold;
-                    g.DrawString(label, lf, new SolidBrush(AppColors.TextSecondary), new Point(16, 56));
+                    g.DrawString(capLabel, lf, new SolidBrush(AppColors.TextSecondary), new Point(16, 56));
                 };
                 Controls.Add(card);
                 cx += 276;
@@ -64,7 +71,7 @@ namespace GestorInventario.Forms
             Controls.Add(lblFilter);
 
             var cbFilter = new ComboBox { Location = new Point(76, 140), Size = new Size(200, 36), Font = AppFonts.Body, FlatStyle = FlatStyle.Flat, DropDownStyle = ComboBoxStyle.DropDownList };
-            cbFilter.Items.AddRange(new[] { "Todos", "Stock Crítico", "Stock Normal", "Inactivos" });
+            cbFilter.Items.AddRange(new[] { "Todos", "Stock Crítico", "Stock Normal" });
             cbFilter.SelectedIndex = 0;
             cbFilter.SelectedIndexChanged += (s, e) => LoadInventario(cbFilter.SelectedItem?.ToString() ?? "Todos");
             Controls.Add(cbFilter);
@@ -90,26 +97,40 @@ namespace GestorInventario.Forms
 
         private void LoadInventario(string filter)
         {
-            dgvInventario.Rows.Clear();
-            foreach (var p in _service.ObtenerTodos())
+            try
             {
-                bool critico = p.StockActual <= p.StockMinimo;
-                if (filter == "Stock Crítico" && !critico) continue;
-                if (filter == "Stock Normal" && critico) continue;
-                if (filter == "Inactivos" && p.Activo) continue;
+                dgvInventario.Rows.Clear();
+                var productos = filter == "Stock Crítico"
+                    ? _service.ObtenerCriticos()
+                    : _service.ObtenerTodos();
 
-                string estado = critico ? "⚠️ Crítico" : "✅ Normal";
-                int r = dgvInventario.Rows.Add(p.Codigo, p.Nombre, p.Categoria, p.StockActual, p.StockMinimo, $"${p.PrecioVenta:N0}", p.Proveedor, estado);
-                if (critico)
+                foreach (var p in productos)
                 {
-                    dgvInventario.Rows[r].Cells["StockActual"].Style.ForeColor = AppColors.Danger;
-                    dgvInventario.Rows[r].Cells["StockActual"].Style.Font = AppFonts.BodyBold;
-                    dgvInventario.Rows[r].Cells["Estado"].Style.ForeColor = AppColors.Danger;
+                    bool critico = p.StockActual <= p.StockMinimo;
+                    if (filter == "Stock Normal" && critico) continue;
+
+                    string estado = critico ? "⚠️ Crítico" : "✅ Normal";
+                    int r = dgvInventario.Rows.Add(
+                        p.Codigo, p.Nombre, p.Categoria,
+                        p.StockActual, p.StockMinimo,
+                        $"${p.PrecioVenta:N0}", p.Proveedor, estado);
+
+                    if (critico)
+                    {
+                        dgvInventario.Rows[r].Cells["StockActual"].Style.ForeColor = AppColors.Danger;
+                        dgvInventario.Rows[r].Cells["StockActual"].Style.Font = AppFonts.BodyBold;
+                        dgvInventario.Rows[r].Cells["Estado"].Style.ForeColor = AppColors.Danger;
+                    }
+                    else
+                    {
+                        dgvInventario.Rows[r].Cells["Estado"].Style.ForeColor = AppColors.Success;
+                    }
                 }
-                else
-                {
-                    dgvInventario.Rows[r].Cells["Estado"].Style.ForeColor = AppColors.Success;
-                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error al cargar inventario: {ex.Message}",
+                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
     }
@@ -121,6 +142,8 @@ namespace GestorInventario.Forms
     {
         private readonly MovimientoService _service = new();
         private DataGridView dgvMovimientos = null!;
+        private ComboBox cboTipo = null!;
+        private DateTimePicker dtDesde = null!, dtHasta = null!;
 
         public FrmHistorialMovimientos()
         {
@@ -133,35 +156,36 @@ namespace GestorInventario.Forms
         {
             SuspendLayout();
 
-            // Filter bar
             var filterPanel = new Panel { Location = new Point(24, 24), Size = new Size(1200, 52), BackColor = Color.Transparent };
 
             var lblTipo = new Label { Text = "Tipo:", Font = AppFonts.BodyBold, ForeColor = AppColors.TextPrimary, Location = new Point(0, 12), AutoSize = true, BackColor = Color.Transparent };
             filterPanel.Controls.Add(lblTipo);
 
-            var cboTipo = new ComboBox { Location = new Point(44, 8), Size = new Size(150, 36), Font = AppFonts.Body, FlatStyle = FlatStyle.Flat, DropDownStyle = ComboBoxStyle.DropDownList };
+            cboTipo = new ComboBox { Location = new Point(44, 8), Size = new Size(160, 36), Font = AppFonts.Body, FlatStyle = FlatStyle.Flat, DropDownStyle = ComboBoxStyle.DropDownList };
             cboTipo.Items.AddRange(new[] { "Todos", "Entrada", "Salida" });
             cboTipo.SelectedIndex = 0;
-            cboTipo.SelectedIndexChanged += (s, e) => LoadData(cboTipo.SelectedItem?.ToString() ?? "Todos");
             filterPanel.Controls.Add(cboTipo);
 
-            var lblDesde = new Label { Text = "Desde:", Font = AppFonts.BodyBold, ForeColor = AppColors.TextPrimary, Location = new Point(210, 12), AutoSize = true, BackColor = Color.Transparent };
+            var lblDesde = new Label { Text = "Desde:", Font = AppFonts.BodyBold, ForeColor = AppColors.TextPrimary, Location = new Point(218, 12), AutoSize = true, BackColor = Color.Transparent };
             filterPanel.Controls.Add(lblDesde);
-            var dtDesde = new DateTimePicker { Location = new Point(260, 8), Size = new Size(160, 36), Font = AppFonts.Body, Format = DateTimePickerFormat.Short, Value = DateTime.Today.AddDays(-30) };
+            dtDesde = new DateTimePicker { Location = new Point(268, 8), Size = new Size(160, 36), Font = AppFonts.Body, Format = DateTimePickerFormat.Short, Value = DateTime.Today.AddDays(-30) };
             filterPanel.Controls.Add(dtDesde);
 
-            var lblHasta = new Label { Text = "Hasta:", Font = AppFonts.BodyBold, ForeColor = AppColors.TextPrimary, Location = new Point(432, 12), AutoSize = true, BackColor = Color.Transparent };
+            var lblHasta = new Label { Text = "Hasta:", Font = AppFonts.BodyBold, ForeColor = AppColors.TextPrimary, Location = new Point(442, 12), AutoSize = true, BackColor = Color.Transparent };
             filterPanel.Controls.Add(lblHasta);
-            var dtHasta = new DateTimePicker { Location = new Point(484, 8), Size = new Size(160, 36), Font = AppFonts.Body, Format = DateTimePickerFormat.Short };
+            dtHasta = new DateTimePicker { Location = new Point(494, 8), Size = new Size(160, 36), Font = AppFonts.Body, Format = DateTimePickerFormat.Short, Value = DateTime.Today };
             filterPanel.Controls.Add(dtHasta);
 
-            var btnFiltrar = UIHelper.CreatePrimaryButton("🔍  Filtrar", new Size(120, 40), new Point(660, 6));
-            btnFiltrar.Click += (s, e) => LoadData(cboTipo.SelectedItem?.ToString() ?? "Todos");
+            var btnFiltrar = UIHelper.CreatePrimaryButton("🔍  Filtrar", new Size(120, 40), new Point(670, 6));
+            btnFiltrar.Click += (s, e) => LoadData();
             filterPanel.Controls.Add(btnFiltrar);
+
+            var btnExportar = UIHelper.CreateSecondaryButton("📋  Exportar", new Size(130, 40), new Point(800, 6));
+            btnExportar.Click += (s, e) => ExportarCSV();
+            filterPanel.Controls.Add(btnExportar);
 
             Controls.Add(filterPanel);
 
-            // Table
             var tableCard = new CardPanel { Location = new Point(24, 92), Size = new Size(1200, 520), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom };
             dgvMovimientos = new DataGridView { Dock = DockStyle.Fill };
             UIHelper.StyleDataGridView(dgvMovimientos);
@@ -175,19 +199,85 @@ namespace GestorInventario.Forms
             tableCard.Controls.Add(dgvMovimientos);
             Controls.Add(tableCard);
 
-            LoadData("Todos");
+            LoadData();
             ResumeLayout();
         }
 
-        private void LoadData(string filter)
+        private void LoadData()
         {
-            dgvMovimientos.Rows.Clear();
-            foreach (var m in _service.ObtenerTodos())
+            try
             {
-                if (filter != "Todos" && m.TipoMovimiento != filter) continue;
-                int r = dgvMovimientos.Rows.Add(m.Fecha.ToString("dd/MM/yyyy HH:mm"), m.TipoMovimiento, m.NombreProducto, m.Cantidad, m.Proveedor, m.Observacion, m.NombreUsuario);
-                dgvMovimientos.Rows[r].Cells["Tipo"].Style.ForeColor = m.TipoMovimiento == "Entrada" ? AppColors.Success : AppColors.Danger;
-                dgvMovimientos.Rows[r].Cells["Tipo"].Style.Font = AppFonts.BodyBold;
+                dgvMovimientos.Rows.Clear();
+                string tipoFiltro = cboTipo.SelectedItem?.ToString() ?? "Todos";
+
+                // Filtrar por fechas usando el servicio real
+                var movimientos = _service.Filtrar(
+                    desde: dtDesde.Value.Date,
+                    hasta: dtHasta.Value.Date.AddDays(1));
+
+                foreach (var m in movimientos)
+                {
+                    // Filtro adicional por tipo entrada/salida
+                    if (tipoFiltro == "Entrada" && m.TipoEntradaSalida != "entrada") continue;
+                    if (tipoFiltro == "Salida" && m.TipoEntradaSalida != "salida") continue;
+
+                    int r = dgvMovimientos.Rows.Add(
+                        m.Fecha.ToString("dd/MM/yyyy HH:mm"),
+                        m.TipoMovimiento,
+                        m.NombreProducto,
+                        m.Cantidad,
+                        m.Proveedor,
+                        m.Observacion,
+                        m.NombreUsuario);
+
+                    dgvMovimientos.Rows[r].Cells["Tipo"].Style.ForeColor =
+                        m.TipoEntradaSalida == "entrada" ? AppColors.Success : AppColors.Danger;
+                    dgvMovimientos.Rows[r].Cells["Tipo"].Style.Font = AppFonts.BodyBold;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error al cargar historial: {ex.Message}",
+                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void ExportarCSV()
+        {
+            try
+            {
+                var sfd = new SaveFileDialog
+                {
+                    Filter = "CSV (*.csv)|*.csv",
+                    FileName = $"historial_movimientos_{DateTime.Today:yyyyMMdd}.csv"
+                };
+                if (sfd.ShowDialog() != DialogResult.OK) return;
+
+                var sb = new System.Text.StringBuilder();
+                sb.AppendLine("Fecha,Tipo,Producto,Cantidad,Proveedor,Observación,Usuario");
+
+                foreach (DataGridViewRow row in dgvMovimientos.Rows)
+                {
+                    if (row.IsNewRow) continue;
+                    sb.AppendLine(string.Join(",",
+                        row.Cells["Fecha"].Value,
+                        row.Cells["Tipo"].Value,
+                        row.Cells["Producto"].Value,
+                        row.Cells["Cantidad"].Value,
+                        row.Cells["Proveedor"].Value,
+                        row.Cells["Observacion"].Value,
+                        row.Cells["Usuario"].Value));
+                }
+
+                System.IO.File.WriteAllText(sfd.FileName, sb.ToString(),
+                    System.Text.Encoding.UTF8);
+                MessageBox.Show("Historial exportado correctamente.", "Éxito",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error al exportar: {ex.Message}",
+                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
     }
@@ -197,8 +287,9 @@ namespace GestorInventario.Forms
     // ═══════════════════════════════════════════════════════════════
     public class FrmAlertas : Form
     {
-        private readonly AlertaService _service = new();
+        private readonly AlertaService _alertService = new();
         private readonly ProductoService _prodService = new();
+        private DataGridView dgv = null!;
 
         public FrmAlertas()
         {
@@ -211,7 +302,7 @@ namespace GestorInventario.Forms
         {
             SuspendLayout();
 
-            // Alert banner
+            // Banner de advertencia
             var banner = new Panel { Location = new Point(24, 24), Size = new Size(1200, 72), BackColor = Color.FromArgb(254, 243, 199) };
             banner.Paint += (s, e) =>
             {
@@ -228,56 +319,139 @@ namespace GestorInventario.Forms
                 using var tb = new SolidBrush(ColorTranslator.FromHtml("#92400E"));
                 g.DrawString("Atención: Hay productos con stock por debajo del mínimo requerido.", tf, tb, new Point(60, 14));
                 using var sf2 = AppFonts.Body;
-                using var sb = new SolidBrush(ColorTranslator.FromHtml("#B45309"));
-                g.DrawString("Revisa y realiza pedidos a proveedores para reabastecer el inventario.", sf2, sb, new Point(60, 36));
+                using var sb2 = new SolidBrush(ColorTranslator.FromHtml("#B45309"));
+                g.DrawString("Revisa y realiza pedidos a proveedores para reabastecer el inventario.", sf2, sb2, new Point(60, 36));
             };
             Controls.Add(banner);
 
-            // Alerts table
-            var tableCard = new CardPanel { Location = new Point(24, 116), Size = new Size(1200, 520), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom };
-            var dgv = new DataGridView { Dock = DockStyle.Fill };
+            // Botones acción
+            var btnResolver = UIHelper.CreatePrimaryButton("✅  Marcar Resuelta", new Size(180, 40), new Point(24, 108));
+            btnResolver.Click += BtnResolver_Click;
+            Controls.Add(btnResolver);
+
+            var btnIgnorar = UIHelper.CreateSecondaryButton("🚫  Ignorar", new Size(130, 40), new Point(214, 108));
+            btnIgnorar.Click += BtnIgnorar_Click;
+            Controls.Add(btnIgnorar);
+
+            var btnRefresh = UIHelper.CreateSecondaryButton("🔄  Actualizar", new Size(140, 40), new Point(354, 108));
+            btnRefresh.Click += (s, e) => LoadAlertas();
+            Controls.Add(btnRefresh);
+
+            // Tabla
+            var tableCard = new CardPanel { Location = new Point(24, 160), Size = new Size(1200, 470), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom };
+            dgv = new DataGridView { Dock = DockStyle.Fill };
             UIHelper.StyleDataGridView(dgv);
+            dgv.Columns.Add("AlertaId", "ID");
             dgv.Columns.Add("Producto", "Producto");
+            dgv.Columns.Add("Codigo", "Código");
             dgv.Columns.Add("StockActual", "Stock Actual");
             dgv.Columns.Add("StockMinimo", "Stock Mínimo");
-            dgv.Columns.Add("Diferencia", "Diferencia");
+            dgv.Columns.Add("Faltantes", "Unidades Faltantes");
             dgv.Columns.Add("Estado", "Estado");
             dgv.Columns.Add("Fecha", "Generada");
-
-            foreach (var a in _service.ObtenerAlertas())
-            {
-                int diff = a.StockActual - a.StockMinimo;
-                int r = dgv.Rows.Add(a.NombreProducto, a.StockActual, a.StockMinimo, diff, a.Estado, a.CreadoEn.ToString("dd/MM/yyyy HH:mm"));
-                if (a.Estado == "Crítico")
-                {
-                    dgv.Rows[r].Cells["Estado"].Style.ForeColor = AppColors.Danger;
-                    dgv.Rows[r].Cells["Estado"].Style.Font = AppFonts.BodyBold;
-                    dgv.Rows[r].Cells["StockActual"].Style.ForeColor = AppColors.Danger;
-                    dgv.Rows[r].DefaultCellStyle.BackColor = Color.FromArgb(10, 239, 68, 68);
-                }
-            }
-
-            // Also show all critical products
-            foreach (var p in _prodService.ObtenerTodos())
-            {
-                if (p.StockActual > p.StockMinimo) continue;
-                // Only add if not already in alertas
-                bool found = false;
-                foreach (var a in _service.ObtenerAlertas())
-                    if (a.NombreProducto == p.Nombre) { found = true; break; }
-                if (found) continue;
-
-                int diff = p.StockActual - p.StockMinimo;
-                int r = dgv.Rows.Add(p.Nombre, p.StockActual, p.StockMinimo, diff, "Crítico", DateTime.Now.ToString("dd/MM/yyyy HH:mm"));
-                dgv.Rows[r].Cells["Estado"].Style.ForeColor = AppColors.Danger;
-                dgv.Rows[r].Cells["Estado"].Style.Font = AppFonts.BodyBold;
-                dgv.Rows[r].DefaultCellStyle.BackColor = Color.FromArgb(10, 239, 68, 68);
-            }
-
+            dgv.Columns["AlertaId"].Visible = false;
             tableCard.Controls.Add(dgv);
             Controls.Add(tableCard);
 
+            LoadAlertas();
             ResumeLayout();
+        }
+
+        private void LoadAlertas()
+        {
+            try
+            {
+                dgv.Rows.Clear();
+                var alertas = _alertService.ObtenerAlertas();
+
+                if (alertas.Count == 0)
+                {
+                    // Si no hay alertas en BD, mostrar productos críticos directamente
+                    foreach (var p in _prodService.ObtenerCriticos())
+                    {
+                        int r = dgv.Rows.Add(
+                            0, p.Nombre, p.Codigo,
+                            p.StockActual, p.StockMinimo,
+                            p.StockMinimo - p.StockActual,
+                            "Activa",
+                            DateTime.Now.ToString("dd/MM/yyyy HH:mm"));
+                        dgv.Rows[r].Cells["Estado"].Style.ForeColor = AppColors.Danger;
+                        dgv.Rows[r].Cells["Estado"].Style.Font = AppFonts.BodyBold;
+                        dgv.Rows[r].DefaultCellStyle.BackColor = Color.FromArgb(10, 239, 68, 68);
+                    }
+                    return;
+                }
+
+                foreach (var a in alertas)
+                {
+                    int r = dgv.Rows.Add(
+                        a.Id,
+                        a.NombreProducto,
+                        a.CodigoProducto,
+                        a.StockActual,
+                        a.StockMinimo,
+                        a.UnidadesFaltantes,
+                        a.Estado,
+                        a.CreadoEn.ToString("dd/MM/yyyy HH:mm"));
+
+                    dgv.Rows[r].Cells["Estado"].Style.ForeColor = AppColors.Danger;
+                    dgv.Rows[r].Cells["Estado"].Style.Font = AppFonts.BodyBold;
+                    dgv.Rows[r].DefaultCellStyle.BackColor = Color.FromArgb(10, 239, 68, 68);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error al cargar alertas: {ex.Message}",
+                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void BtnResolver_Click(object? sender, EventArgs e)
+        {
+            if (dgv.SelectedRows.Count == 0)
+            {
+                MessageBox.Show("Selecciona una alerta.", "Selección requerida",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            int alertaId = Convert.ToInt32(dgv.SelectedRows[0].Cells["AlertaId"].Value);
+            if (alertaId == 0) { MessageBox.Show("Esta alerta no está registrada en BD.", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
+
+            try
+            {
+                _alertService.Resolver(alertaId);
+                MessageBox.Show("Alerta marcada como resuelta.", "Éxito",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                LoadAlertas();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void BtnIgnorar_Click(object? sender, EventArgs e)
+        {
+            if (dgv.SelectedRows.Count == 0)
+            {
+                MessageBox.Show("Selecciona una alerta.", "Selección requerida",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            int alertaId = Convert.ToInt32(dgv.SelectedRows[0].Cells["AlertaId"].Value);
+            if (alertaId == 0) { MessageBox.Show("Esta alerta no está registrada en BD.", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
+
+            try
+            {
+                _alertService.Ignorar(alertaId);
+                MessageBox.Show("Alerta ignorada.", "Éxito",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                LoadAlertas();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
     }
 }
