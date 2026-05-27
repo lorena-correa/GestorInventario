@@ -1,6 +1,7 @@
+using GestorInventario.Models;
+using GestorInventario.Repositories;
 using System;
 using System.Collections.Generic;
-using GestorInventario.Models;
 
 namespace GestorInventario.Services
 {
@@ -9,22 +10,44 @@ namespace GestorInventario.Services
     /// </summary>
     public class AuthService
     {
-        // TODO: inject AuthRepository
-        public bool Login(string usuario, string password)
+        private readonly UsuarioRepository _repo = new();
+
+        public bool Login(string email, string password)
         {
-            // DEMO: accept admin/admin for testing UI
-            if (usuario == "admin" && password == "admin")
+            try
             {
+                // Hashear contraseña con SHA256
+                string hash = HashPassword(password);
+
+                // Primero intentar con hash, si falla intentar texto plano (para usuario admin inicial)
+                var usuario = _repo.GetByCredentials(email, hash)
+                           ?? _repo.GetByCredentials(email, password);
+
+                if (usuario == null) return false;
+
+                // Guardar sesión
                 Config.Session.IsAuthenticated = true;
-                Config.Session.UserName = "Administrador";
-                Config.Session.Role = "Administrador";
-                Config.Session.UserId = 1;
+                Config.Session.UserId = usuario.Id;
+                Config.Session.UserName = usuario.Nombre;
+                Config.Session.Email = usuario.Email;
+                Config.Session.Role = usuario.Rol;
                 return true;
             }
-            return false;
+            catch (Exception ex)
+            {
+                throw new Exception($"Error al conectar con la base de datos: {ex.Message}");
+            }
         }
 
         public void Logout() => Config.Session.Clear();
+
+        public static string HashPassword(string password)
+        {
+            using var sha = System.Security.Cryptography.SHA256.Create();
+            var bytes = System.Text.Encoding.UTF8.GetBytes(password);
+            var hash = sha.ComputeHash(bytes);
+            return Convert.ToHexString(hash).ToLower();
+        }
     }
 
     /// <summary>

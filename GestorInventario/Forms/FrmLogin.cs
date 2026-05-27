@@ -98,7 +98,7 @@ namespace GestorInventario.Forms
             rightPanel.Controls.Add(lnkRecuperar);
 
             // Hint
-            rightPanel.Controls.Add(new Label { Text = "Demo: usuario=admin / contraseña=admin", Font = AppFonts.Small, ForeColor = Color.FromArgb(150, 107, 114, 128), Location = new Point(60, 476), AutoSize = true });
+            rightPanel.Controls.Add(new Label { Text = "Usuario: admin@empresa.com / Contraseña: admin", Font = AppFonts.Small, ForeColor = Color.FromArgb(150, 107, 114, 128), Location = new Point(60, 476), AutoSize = true });
 
             // Enter key
             txtUsuario.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter) txtPassword.Focus(); };
@@ -150,9 +150,44 @@ namespace GestorInventario.Forms
         {
             string user = txtUsuario.Text.Trim();
             string pass = txtPassword.Text;
-            if (string.IsNullOrEmpty(user) || string.IsNullOrEmpty(pass)) { lblError.Text = "Por favor ingresa usuario y contraseña."; return; }
-            if (_authService.Login(user, pass)) { var main = new FrmMain(); main.Show(); Hide(); }
-            else { lblError.Text = "Usuario o contraseña incorrectos."; txtPassword.Clear(); txtPassword.Focus(); }
+
+            // Validaciones básicas
+            if (string.IsNullOrEmpty(user) || string.IsNullOrEmpty(pass))
+            {
+                lblError.Text = "Por favor ingresa usuario y contraseña.";
+                return;
+            }
+
+            // Deshabilitar botón mientras conecta
+            var btn = sender as Button;
+            if (btn != null) { btn.Enabled = false; btn.Text = "Conectando..."; }
+            lblError.Text = "";
+
+            try
+            {
+                if (_authService.Login(user, pass))
+                {
+                    var main = new FrmMain();
+                    main.Show();
+                    Hide();
+                }
+                else
+                {
+                    lblError.Text = "Usuario o contraseña incorrectos.";
+                    txtPassword.Clear();
+                    txtPassword.Focus();
+                }
+            }
+            catch (Exception ex)
+            {
+                lblError.Text = "⚠ Sin conexión a BD. Verifica la configuración.";
+                MessageBox.Show(ex.Message, "Error de conexión",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                if (btn != null) { btn.Enabled = true; btn.Text = "Iniciar Sesión"; }
+            }
         }
     }
 }

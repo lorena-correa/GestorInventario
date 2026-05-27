@@ -13,7 +13,7 @@ namespace GestorInventario.Config
         public static int Port { get; set; } = 5432;
         public static string Database { get; set; } = "gestor_inventario";
         public static string Username { get; set; } = "postgres";
-        public static string Password { get; set; } = "admin";   // ← cambia a tu contraseña
+        public static string Password { get; set; } = "1234";
 
         public static string ConnectionString =>
             $"Host={Host};Port={Port};Database={Database};" +
