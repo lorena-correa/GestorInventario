@@ -25,7 +25,17 @@ namespace GestorInventario.Forms
 
         private void BuildUI()
         {
-            var stats = _dashService.ObtenerEstadisticas();
+            DashboardStats stats;
+            try
+            {
+                stats = _dashService.ObtenerEstadisticas();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error al cargar dashboard: {ex.Message}",
+                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                stats = new DashboardStats();
+            }
             SuspendLayout();
 
             // Saludo

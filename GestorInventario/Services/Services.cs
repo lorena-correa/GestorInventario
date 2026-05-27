@@ -123,37 +123,129 @@ namespace GestorInventario.Services
         }
     }
 
-    
+
     /// Inventory movement service.
-    /// </summary>
     public class MovimientoService
     {
-        public List<Movimiento> ObtenerTodos() => DemoData.Movimientos;
-        public bool RegistrarEntrada(Movimiento m) { DemoData.Movimientos.Add(m); return true; }
-        public bool RegistrarSalida(Movimiento m) { DemoData.Movimientos.Add(m); return true; }
+        private readonly MovimientoRepository _repo = new();
+
+        public List<Movimiento> ObtenerTodos()
+        {
+            try { return _repo.GetHistorial(); }
+            catch (Exception ex) { throw new Exception($"Error al obtener movimientos: {ex.Message}"); }
+        }
+
+        public List<Movimiento> Filtrar(
+            int? productoId = null,
+            int? tipoId = null,
+            DateTime? desde = null,
+            DateTime? hasta = null)
+        {
+            try { return _repo.GetHistorial(productoId, tipoId, desde, hasta); }
+            catch (Exception ex) { throw new Exception($"Error al filtrar movimientos: {ex.Message}"); }
+        }
+
+        public bool RegistrarEntrada(Movimiento m)
+        {
+            try
+            {
+                // Buscar tipo "Compra a proveedor" (id=1) por defecto para entradas
+                if (m.TipoMovimientoId == 0) m.TipoMovimientoId = 1;
+                return _repo.RegistrarMovimiento(m);
+            }
+            catch (Exception ex) { throw new Exception(ex.Message); }
+        }
+
+        public bool RegistrarSalida(Movimiento m)
+        {
+            try
+            {
+                // Buscar tipo "Venta" (id=2) por defecto para salidas
+                if (m.TipoMovimientoId == 0) m.TipoMovimientoId = 2;
+                return _repo.RegistrarMovimiento(m);
+            }
+            catch (Exception ex) { throw new Exception(ex.Message); }
+        }
+
+        public bool Registrar(Movimiento m)
+        {
+            try { return _repo.RegistrarMovimiento(m); }
+            catch (Exception ex) { throw new Exception(ex.Message); }
+        }
+
+        public List<TipoMovimiento> ObtenerTipos()
+        {
+            try { return _repo.GetTipos(); }
+            catch (Exception ex) { throw new Exception($"Error al obtener tipos: {ex.Message}"); }
+        }
     }
 
-    
     /// Dashboard statistics service.
-    /// </summary>
     public class DashboardService
     {
-        public DashboardStats ObtenerEstadisticas() => new DashboardStats
+        private readonly ProductoRepository _prodRepo = new();
+        private readonly MovimientoRepository _movRepo = new();
+        private readonly AlertaRepository _alertRepo = new();
+        private readonly ProveedorRepository _provRepo = new();
+
+        public DashboardStats ObtenerEstadisticas()
         {
-            TotalProductos = DemoData.Productos.Count,
-            ProductosCriticos = DemoData.Productos.FindAll(p => p.StockActual <= p.StockMinimo).Count,
-            MovimientosHoy = DemoData.Movimientos.FindAll(m => m.Fecha.Date == DateTime.Today).Count,
-            AlertasActivas = 3,
-            TotalProveedores = DemoData.Proveedores.Count,
-            ValorInventario = 125430.50m
-        };
+            try
+            {
+                var productos = _prodRepo.GetAll();
+                var criticos = _prodRepo.GetCriticos();
+                var movHoy = _movRepo.GetHistorial(desde: DateTime.Today, hasta: DateTime.Today.AddDays(1));
+                var alertas = _alertRepo.ContarActivas();
+                var proveedores = _provRepo.GetAll();
+
+                decimal valorInventario = 0;
+                foreach (var p in productos)
+                    valorInventario += p.StockActual * p.PrecioVenta;
+
+                return new DashboardStats
+                {
+                    TotalProductos = productos.Count,
+                    ProductosCriticos = criticos.Count,
+                    MovimientosHoy = movHoy.Count,
+                    AlertasActivas = alertas,
+                    TotalProveedores = proveedores.Count,
+                    ValorInventario = valorInventario
+                };
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Error al obtener estadísticas: {ex.Message}");
+            }
+        }
     }
 
-    
     /// Alert service.
-    /// </summary>
     public class AlertaService
     {
-        public List<Alerta> ObtenerAlertas() => DemoData.Alertas;
+        private readonly AlertaRepository _repo = new();
+
+        public List<Alerta> ObtenerAlertas()
+        {
+            try { return _repo.GetActivas(); }
+            catch (Exception ex) { throw new Exception($"Error al obtener alertas: {ex.Message}"); }
+        }
+
+        public bool Resolver(int alertaId)
+        {
+            try { return _repo.Resolver(alertaId); }
+            catch (Exception ex) { throw new Exception($"Error al resolver alerta: {ex.Message}"); }
+        }
+
+        public bool Ignorar(int alertaId)
+        {
+            try { return _repo.Ignorar(alertaId); }
+            catch (Exception ex) { throw new Exception($"Error al ignorar alerta: {ex.Message}"); }
+        }
+
+        public int ContarActivas()
+        {
+            try { return _repo.ContarActivas(); }
+            catch (Exception ex) { throw new Exception($"Error al contar alertas: {ex.Message}"); }
+        }
     }
 }
