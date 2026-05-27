@@ -248,4 +248,30 @@ namespace GestorInventario.Services
             catch (Exception ex) { throw new Exception($"Error al contar alertas: {ex.Message}"); }
         }
     }
+    public class UsuarioService
+    {
+        private readonly UsuarioRepository _repo = new();
+
+        public List<Usuario> ObtenerTodos()
+        {
+            try { return _repo.GetAll(); }
+            catch (Exception ex) { throw new Exception($"Error al obtener usuarios: {ex.Message}"); }
+        }
+
+        public bool Guardar(Usuario u)
+        {
+            try
+            {
+                if (u.Id == 0) return _repo.Create(u);
+                else return _repo.Update(u);
+            }
+            catch (Exception ex) { throw new Exception(ex.Message); }
+        }
+
+        public bool Eliminar(int id)
+        {
+            try { return _repo.Delete(id); }
+            catch (Exception ex) { throw new Exception($"Error al eliminar usuario: {ex.Message}"); }
+        }
+    }
 }

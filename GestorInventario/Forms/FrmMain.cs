@@ -4,6 +4,7 @@ using System.Windows.Forms;
 using GestorInventario.Components;
 using GestorInventario.Config;
 using GestorInventario.Helpers;
+using GestorInventario.Services;
 
 namespace GestorInventario.Forms
 {
@@ -58,7 +59,7 @@ namespace GestorInventario.Forms
                 case "Entradas": LoadModule(new FrmEntradaInventario(), "Entrada de Inventario", "Entradas"); break;
                 case "Salidas": LoadModule(new FrmSalidaInventario(), "Salida de Inventario", "Salidas"); break;
                 case "Inventario": LoadModule(new FrmInventario(), "Inventario", "Inventario"); break;
-                case "Reportes": LoadModule(new FrmHistorialMovimientos(), "Historial de Movimientos", "Reportes"); break;
+                case "Reportes": LoadModule(new FrmReportes(), "Reportes", "Reportes"); break;
                 case "Alertas": LoadModule(new FrmAlertas(), "Alertas", "Alertas"); break;
                 case "Usuarios": LoadModule(new FrmUsuarios(), "Usuarios", "Usuarios"); break;
                 case "Configuración": LoadModule(new FrmConfiguracion(), "Configuración", "Configuración"); break;
