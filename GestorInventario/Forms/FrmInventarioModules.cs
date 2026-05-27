@@ -185,7 +185,7 @@ namespace GestorInventario.Forms
             foreach (var m in _service.ObtenerTodos())
             {
                 if (filter != "Todos" && m.TipoMovimiento != filter) continue;
-                int r = dgvMovimientos.Rows.Add(m.Fecha.ToString("dd/MM/yyyy HH:mm"), m.TipoMovimiento, m.Producto, m.Cantidad, m.Proveedor, m.Observacion, m.Usuario);
+                int r = dgvMovimientos.Rows.Add(m.Fecha.ToString("dd/MM/yyyy HH:mm"), m.TipoMovimiento, m.NombreProducto, m.Cantidad, m.Proveedor, m.Observacion, m.NombreUsuario);
                 dgvMovimientos.Rows[r].Cells["Tipo"].Style.ForeColor = m.TipoMovimiento == "Entrada" ? AppColors.Success : AppColors.Danger;
                 dgvMovimientos.Rows[r].Cells["Tipo"].Style.Font = AppFonts.BodyBold;
             }
@@ -247,7 +247,7 @@ namespace GestorInventario.Forms
             foreach (var a in _service.ObtenerAlertas())
             {
                 int diff = a.StockActual - a.StockMinimo;
-                int r = dgv.Rows.Add(a.Producto, a.StockActual, a.StockMinimo, diff, a.Estado, a.CreadoEn.ToString("dd/MM/yyyy HH:mm"));
+                int r = dgv.Rows.Add(a.NombreProducto, a.StockActual, a.StockMinimo, diff, a.Estado, a.CreadoEn.ToString("dd/MM/yyyy HH:mm"));
                 if (a.Estado == "Crítico")
                 {
                     dgv.Rows[r].Cells["Estado"].Style.ForeColor = AppColors.Danger;
@@ -264,7 +264,7 @@ namespace GestorInventario.Forms
                 // Only add if not already in alertas
                 bool found = false;
                 foreach (var a in _service.ObtenerAlertas())
-                    if (a.Producto == p.Nombre) { found = true; break; }
+                    if (a.NombreProducto == p.Nombre) { found = true; break; }
                 if (found) continue;
 
                 int diff = p.StockActual - p.StockMinimo;

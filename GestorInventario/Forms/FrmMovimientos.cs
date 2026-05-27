@@ -113,7 +113,7 @@ namespace GestorInventario.Forms
             foreach (var m in _movService.ObtenerTodos())
             {
                 if (m.TipoMovimiento != "Entrada") continue;
-                dgvRecientes.Rows.Add(m.Producto, m.Proveedor, m.Cantidad, m.Usuario, m.Fecha.ToString("dd/MM/yyyy HH:mm"));
+                dgvRecientes.Rows.Add(m.NombreProducto, m.Proveedor, m.Cantidad, m.NombreUsuario, m.Fecha.ToString("dd/MM/yyyy HH:mm"));
             }
         }
 
@@ -130,15 +130,15 @@ namespace GestorInventario.Forms
                 return;
             }
 
-            var mov = new MovimientoInventario
+            var mov = new Movimiento
             {
-                Producto = cboProducto.SelectedItem?.ToString() ?? "",
+                NombreProducto = cboProducto.SelectedItem?.ToString() ?? "",
                 TipoMovimiento = "Entrada",
                 Cantidad = qty,
                 Proveedor = cboProveedor.SelectedItem?.ToString() ?? "",
                 Observacion = txtObservacion.Text.Trim(),
                 Fecha = dtpFecha.Value,
-                Usuario = Config.Session.UserName,
+                NombreUsuario = Config.Session.UserName,
                 UsuarioId = Config.Session.UserId
             };
 
@@ -253,7 +253,7 @@ namespace GestorInventario.Forms
             foreach (var m in _movService.ObtenerTodos())
             {
                 if (m.TipoMovimiento != "Salida") continue;
-                dgvRecientes.Rows.Add(m.Producto, m.Cantidad, m.Observacion, m.Usuario, m.Fecha.ToString("dd/MM/yyyy HH:mm"));
+                dgvRecientes.Rows.Add(m.NombreProducto, m.Cantidad, m.Observacion, m.NombreUsuario, m.Fecha.ToString("dd/MM/yyyy HH:mm"));
             }
         }
 
@@ -269,16 +269,17 @@ namespace GestorInventario.Forms
                 MessageBox.Show("La cantidad debe ser un número positivo.", "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
-            var mov = new MovimientoInventario
+            var mov = new Movimiento
             {
-                Producto = cboProducto.SelectedItem?.ToString() ?? "",
+                NombreProducto = cboProducto.SelectedItem?.ToString() ?? "",
                 TipoMovimiento = "Salida",
                 Cantidad = qty,
                 Observacion = cboMotivo.SelectedItem?.ToString() + (string.IsNullOrEmpty(txtObservacion.Text) ? "" : $": {txtObservacion.Text}"),
                 Fecha = dtpFecha.Value,
-                Usuario = Config.Session.UserName,
+                NombreUsuario = Config.Session.UserName,
                 UsuarioId = Config.Session.UserId
             };
+
             _movService.RegistrarSalida(mov);
             MessageBox.Show("Salida registrada correctamente.", "Éxito", MessageBoxButtons.OK, MessageBoxIcon.Information);
             Limpiar();

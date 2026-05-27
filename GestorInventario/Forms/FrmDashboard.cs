@@ -67,7 +67,7 @@ namespace GestorInventario.Forms
             dgv.Columns.Add("Fecha", "Fecha");
             foreach (var m in _movService.ObtenerTodos())
             {
-                int r = dgv.Rows.Add(m.Producto, m.TipoMovimiento, m.Cantidad, m.Usuario, m.Fecha.ToString("dd/MM/yyyy HH:mm"));
+                int r = dgv.Rows.Add(m.NombreProducto, m.TipoMovimiento, m.Cantidad, m.NombreUsuario, m.Fecha.ToString("dd/MM/yyyy HH:mm"));
                 dgv.Rows[r].Cells["Tipo"].Style.ForeColor = m.TipoMovimiento == "Entrada" ? AppColors.Success : AppColors.Danger;
             }
             tableCard.Controls.Add(dgv);

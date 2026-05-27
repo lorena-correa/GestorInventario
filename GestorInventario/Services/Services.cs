@@ -57,9 +57,9 @@ namespace GestorInventario.Services
     /// </summary>
     public class MovimientoService
     {
-        public List<MovimientoInventario> ObtenerTodos() => DemoData.Movimientos;
-        public bool RegistrarEntrada(MovimientoInventario m) { DemoData.Movimientos.Add(m); return true; }
-        public bool RegistrarSalida(MovimientoInventario m) { DemoData.Movimientos.Add(m); return true; }
+        public List<Movimiento> ObtenerTodos() => DemoData.Movimientos;
+        public bool RegistrarEntrada(Movimiento m) { DemoData.Movimientos.Add(m); return true; }
+        public bool RegistrarSalida(Movimiento m) { DemoData.Movimientos.Add(m); return true; }
     }
 
     /// <summary>

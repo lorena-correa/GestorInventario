@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 namespace GestorInventario.Models
 {
@@ -12,6 +12,13 @@ namespace GestorInventario.Models
         public string Rol { get; set; } = string.Empty;
         public bool Activo { get; set; } = true;
         public DateTime CreadoEn { get; set; }
+    }
+
+    public class Rol
+    {
+        public int Id { get; set; }
+        public string Nombre { get; set; } = string.Empty;
+        public string Descripcion { get; set; } = string.Empty;
     }
 
     public class Producto
@@ -29,6 +36,9 @@ namespace GestorInventario.Models
         public string Proveedor { get; set; } = string.Empty;
         public bool Activo { get; set; } = true;
         public DateTime CreadoEn { get; set; }
+
+        // Propiedad calculada útil para la UI
+        public bool EsCritico => StockActual <= StockMinimo;
     }
 
     public class Proveedor
@@ -42,18 +52,29 @@ namespace GestorInventario.Models
         public DateTime CreadoEn { get; set; }
     }
 
-    public class MovimientoInventario
+    public class TipoMovimiento
+    {
+        public int Id { get; set; }
+        public string Nombre { get; set; } = string.Empty;
+        public string Tipo { get; set; } = string.Empty; // "entrada" o "salida"
+    }
+
+    // Renombrada de Movimiento → Movimiento
+    // para coincidir con los repositorios
+    public class Movimiento
     {
         public int Id { get; set; }
         public int ProductoId { get; set; }
-        public string Producto { get; set; } = string.Empty;
+        public string NombreProducto { get; set; } = string.Empty;
+        public string CodigoProducto { get; set; } = string.Empty;
         public int TipoMovimientoId { get; set; }
         public string TipoMovimiento { get; set; } = string.Empty;
+        public string TipoEntradaSalida { get; set; } = string.Empty; // "entrada" o "salida"
         public int Cantidad { get; set; }
         public string Observacion { get; set; } = string.Empty;
         public int UsuarioId { get; set; }
-        public string Usuario { get; set; } = string.Empty;
-        public int? ProveedorId { get; set; }
+        public string NombreUsuario { get; set; } = string.Empty;
+        public int ProveedorId { get; set; }
         public string Proveedor { get; set; } = string.Empty;
         public DateTime Fecha { get; set; }
     }
@@ -62,9 +83,11 @@ namespace GestorInventario.Models
     {
         public int Id { get; set; }
         public int ProductoId { get; set; }
-        public string Producto { get; set; } = string.Empty;
+        public string NombreProducto { get; set; } = string.Empty;
+        public string CodigoProducto { get; set; } = string.Empty;
         public int StockActual { get; set; }
         public int StockMinimo { get; set; }
+        public int UnidadesFaltantes { get; set; }
         public string Estado { get; set; } = string.Empty;
         public DateTime CreadoEn { get; set; }
     }

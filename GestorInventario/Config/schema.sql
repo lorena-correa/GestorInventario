@@ -133,7 +133,7 @@ SELECT
     CASE WHEN p.stock_actual <= p.stock_minimo THEN 'Crítico' ELSE 'Normal' END AS estado_stock,
     p.activo
 FROM tb_productos p
-LEFT JOIN tb_proveedores pr ON p.proveedor_id = pr.id
+LEFT JOIN tb_proveedores pr ON p.Proveedor_id = pr.id
 ORDER BY estado_stock DESC, p.nombre;
 
 -- Vista: Historial de movimientos completo
@@ -150,10 +150,10 @@ SELECT
     u.nombre AS usuario,
     pr.nombre AS proveedor
 FROM tb_movimientos_inventario m
-JOIN tb_productos p ON m.producto_id = p.id
+JOIN tb_productos p ON m.NombreProducto_id = p.id
 JOIN tb_tipo_movimiento tm ON m.tipo_movimiento_id = tm.id
-LEFT JOIN tb_usuarios u ON m.usuario_id = u.id
-LEFT JOIN tb_proveedores pr ON m.proveedor_id = pr.id
+LEFT JOIN tb_usuarios u ON m.NombreUsuario_id = u.id
+LEFT JOIN tb_proveedores pr ON m.Proveedor_id = pr.id
 ORDER BY m.fecha DESC;
 
 -- Vista: Alertas activas
@@ -168,7 +168,7 @@ SELECT
     a.estado,
     a.creado_en
 FROM tb_alertas a
-JOIN tb_productos p ON a.producto_id = p.id
+JOIN tb_productos p ON a.NombreProducto_id = p.id
 WHERE a.estado = 'Activa'
 ORDER BY (p.stock_minimo - p.stock_actual) DESC;
 
