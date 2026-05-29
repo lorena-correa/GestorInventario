@@ -30,7 +30,7 @@ namespace GestorInventario.Forms
         {
             SuspendLayout();
 
-            // TableLayoutPanel divide el formulario en 2 columnas
+            // TableLayoutPanel divide el formulario en 2 columnas, esto para más organización 
             var table = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
@@ -158,7 +158,7 @@ namespace GestorInventario.Forms
                 return;
             }
 
-            // Deshabilitar botón mientras conecta
+            // Deshabilitar botón mientras se conecta
             var btn = sender as Button;
             if (btn != null) { btn.Enabled = false; btn.Text = "Conectando..."; }
             lblError.Text = "";

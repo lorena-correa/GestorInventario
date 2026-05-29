@@ -10,7 +10,7 @@ using GestorInventario.Services;
 namespace GestorInventario.Forms
 {
     // ═══════════════════════════════════════════════════════════════
-    // FrmUsuarios
+    // Formulario de Usuarios
     // ═══════════════════════════════════════════════════════════════
     public class FrmUsuarios : Form
     {
@@ -142,7 +142,7 @@ namespace GestorInventario.Forms
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // FrmUsuarioDetalle — Crear / Editar usuario
+    // Formulario UsuarioDetalle — Crear y Editar usuario
     // ═══════════════════════════════════════════════════════════════
     public class FrmUsuarioDetalle : Form
     {
@@ -265,7 +265,7 @@ namespace GestorInventario.Forms
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // FrmReportes
+    // Formulario de Reportes
     // ═══════════════════════════════════════════════════════════════
     public class FrmReportes : Form
     {
@@ -492,7 +492,7 @@ namespace GestorInventario.Forms
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // FrmConfiguracion
+    // Form de Configuracion
     // ═══════════════════════════════════════════════════════════════
     public class FrmConfiguracion : Form
     {

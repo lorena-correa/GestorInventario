@@ -8,9 +8,7 @@ using GestorInventario.Services;
 
 namespace GestorInventario.Forms
 {
-    /// <summary>
-    /// Main shell form: hosts Sidebar + TopBar + dynamic content area.
-    /// </summary>
+
     public class FrmMain : Form
     {
         private SidebarControl _sidebar = null!;
@@ -27,7 +25,22 @@ namespace GestorInventario.Forms
             Text = "Gestor de Inventario";
             FormBorderStyle = FormBorderStyle.Sizable;
             BuildLayout();
+            // AplicarPermisosPorRol();  ← comenta esta línea por ahora
             LoadModule(new FrmDashboard(), "Dashboard", "Inicio");
+
+            /*
+
+            // ── DEBUG temporal  para validar los roles ─────────────────────────────────────────
+            MessageBox.Show(
+                $"Usuario: {Session.UserName}\n" +
+                $"Rol raw: '{Session.Role}'\n" +
+                $"Rol lower: '{Session.Role?.ToLower()}'",
+                "Debug sesión");
+            // ──────────────────────────────────────────────────────────*/
+
+            AplicarPermisosPorRol();
+            LoadModule(new FrmDashboard(), "Dashboard", "Inicio");
+
         }
 
         private void BuildLayout()
@@ -48,21 +61,101 @@ namespace GestorInventario.Forms
             Controls.Add(_topBar);
             Controls.Add(_sidebar);
         }
+        //Agrega  los permisos y reestricciones por rol
+        private void AplicarPermisosPorRol()
+        {
+            string rol = Session.Role ?? "";
 
+            // El Supervisor solo ve: Inicio, Inventario, Reportes, Historial
+            // El Almacenista no ve: Usuarios, Configuración, Reportes
+            // El Administrador ve todo
+
+            _sidebar.SetModuleVisible("Usuarios", rol == "Administrador");
+            _sidebar.SetModuleVisible("Configuración", rol == "Administrador");
+            _sidebar.SetModuleVisible("Reportes", rol == "Administrador" || rol == "Supervisor");
+            _sidebar.SetModuleVisible("Entradas", rol == "Administrador" || rol == "Almacenista");
+            _sidebar.SetModuleVisible("Salidas", rol == "Administrador" || rol == "Almacenista");
+            _sidebar.SetModuleVisible("Proveedores", rol == "Administrador" || rol == "Almacenista");
+            _sidebar.SetModuleVisible("Alertas", rol == "Administrador" || rol == "Almacenista");
+        }
+
+        //Nvegación de la página
         private void Navigate(string module)
         {
+            string rol = Session.Role ?? "";
+
             switch (module)
             {
-                case "Inicio": LoadModule(new FrmDashboard(), "Dashboard", "Inicio"); break;
-                case "Productos": LoadModule(new FrmProductos(), "Productos", "Productos"); break;
-                case "Proveedores": LoadModule(new FrmProveedores(), "Proveedores", "Proveedores"); break;
-                case "Entradas": LoadModule(new FrmEntradaInventario(), "Entrada de Inventario", "Entradas"); break;
-                case "Salidas": LoadModule(new FrmSalidaInventario(), "Salida de Inventario", "Salidas"); break;
-                case "Inventario": LoadModule(new FrmInventario(), "Inventario", "Inventario"); break;
-                case "Reportes": LoadModule(new FrmReportes(), "Reportes", "Reportes"); break;
-                case "Alertas": LoadModule(new FrmAlertas(), "Alertas", "Alertas"); break;
-                case "Usuarios": LoadModule(new FrmUsuarios(), "Usuarios", "Usuarios"); break;
-                case "Configuración": LoadModule(new FrmConfiguracion(), "Configuración", "Configuración"); break;
+                case "Inicio":
+                    LoadModule(new FrmDashboard(), "Dashboard", "Inicio");
+                    break;
+
+                // ── Módulos accesibles por Administrador y Almacenista ──────────
+                case "Productos":
+                    if (rol == "Administrador" || rol == "Almacenista")
+                        LoadModule(new FrmProductos(), "Productos", "Productos");
+                    else
+                        MostrarAccesoDenegado();
+                    break;
+
+                case "Proveedores":
+                    if (rol == "Administrador" || rol == "Almacenista")
+                        LoadModule(new FrmProveedores(), "Proveedores", "Proveedores");
+                    else
+                        MostrarAccesoDenegado();
+                    break;
+
+                case "Entradas":
+                    if (rol == "Administrador" || rol == "Almacenista")
+                        LoadModule(new FrmEntradaInventario(), "Entrada de Inventario", "Entradas");
+                    else
+                        MostrarAccesoDenegado();
+                    break;
+
+                case "Salidas":
+                    if (rol == "Administrador" || rol == "Almacenista")
+                        LoadModule(new FrmSalidaInventario(), "Salida de Inventario", "Salidas");
+                    else
+                        MostrarAccesoDenegado();
+                    break;
+
+                case "Alertas":
+                    if (rol == "Administrador" || rol == "Almacenista")
+                        LoadModule(new FrmAlertas(), "Alertas", "Alertas");
+                    else
+                        MostrarAccesoDenegado();
+                    break;
+
+                // ── Módulos de solo lectura: Administrador y Supervisor ─────────
+                case "Inventario":
+                    if (rol == "Administrador" || rol == "Supervisor")
+                        LoadModule(new FrmInventario(), "Inventario", "Inventario");
+                    else
+                        MostrarAccesoDenegado();
+                    break;
+
+                case "Reportes":
+                    if (rol == "Administrador" || rol == "Supervisor")
+                        LoadModule(new FrmReportes(), "Reportes", "Reportes");
+                    else
+                        MostrarAccesoDenegado();
+                    break;
+
+                // ── Solo Administrador ──────────────────────────────────────────
+                case "Usuarios":
+                    if (rol == "Administrador")
+                        LoadModule(new FrmUsuarios(), "Usuarios", "Usuarios");
+                    else
+                        MostrarAccesoDenegado();
+                    break;
+
+                case "Configuración":
+                    if (rol == "Administrador")
+                        LoadModule(new FrmConfiguracion(), "Configuración", "Configuración");
+                    else
+                        MostrarAccesoDenegado();
+                    break;
+
                 case "Logout":
                     if (MessageBox.Show("¿Desea cerrar sesión?", "Cerrar sesión",
                         MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
@@ -74,6 +167,16 @@ namespace GestorInventario.Forms
                     }
                     break;
             }
+        }
+
+        private void MostrarAccesoDenegado()
+        {
+            MessageBox.Show(
+                "No tiene permisos para acceder a este módulo.",
+                "Acceso denegado",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning
+            );
         }
 
         private void LoadModule(Form form, string moduleName, string sidebarKey)

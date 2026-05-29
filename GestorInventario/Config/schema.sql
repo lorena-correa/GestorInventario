@@ -565,3 +565,11 @@ BEGIN
         (SELECT COALESCE(SUM(stock_actual * precio_venta), 0) FROM tb_productos WHERE activo = true);
 END;
 $$ LANGUAGE plpgsql;
+
+
+select * from tb_proveedores;
+
+
+SELECT column_name 
+FROM information_schema.columns 
+WHERE table_name = 'tb_movimientos_inventario';
