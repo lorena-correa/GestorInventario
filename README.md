@@ -56,13 +56,17 @@ public static string Password { get; set; } = "tu_contraseña";
 
 | Rol | Acceso |
 |-----|--------|
-| Administrador | Acceso total: CRUD, usuarios, configuración |
-| Operador | Registrar entradas y salidas |
-| Consultor | Solo lectura |
+| Administrador | Acceso total |
+| Almacenista   | Entradas y salidas |
+| Supervisor    | Solo lectura |
 
 **Credenciales de prueba:**
-- Usuario: `admin@empresa.com`
-- Contraseña: `admin`
+
+| Rol           | Usuario                    | Contraseña |
+|---------------|----------------------------|------------|
+| Administrador | admin@empresa.com          | admin      |
+| Almacenista   | almacenista@empresa.com    | almacenista|
+| Supervisor    | supervisor@empresa.com     | supervisor |
 
 ---
 
@@ -131,7 +135,7 @@ GestorInventario/
 │
 ├── Services/                   # Capa de Lógica de Negocio
 │   ├── Services.cs
-│   └── DemoData.cs
+│   └── DemoData.cs             # ⚠️ Archivo legacy — ya no lo uso
 │
 ├── Repositories/               # Capa de Acceso a Datos (Npgsql)
 │   └── Repositories.cs
