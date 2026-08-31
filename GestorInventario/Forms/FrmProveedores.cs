@@ -30,30 +30,69 @@ namespace GestorInventario.Forms
         {
             SuspendLayout();
 
-            var toolbar = new Panel { Location = new Point(24, 24), Size = new Size(1100, 52), BackColor = Color.Transparent };
+            var toolbarCard = new CardPanel
+            {
+                Location = new Point(24, 16),
+                Size = new Size(1140, 72),
+                Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right
+            };
 
-            var lblSearch = new Label { Text = "🔍", Font = new Font("Segoe UI Emoji", 12f), Location = new Point(0, 12), AutoSize = true, BackColor = Color.Transparent };
-            toolbar.Controls.Add(lblSearch);
+            var lblTitulo = new Label
+            {
+                Text = "🏢  ADMINISTRACIÓN DE PROVEEDORES",
+                Font = AppFonts.Heading,
+                ForeColor = AppColors.TextPrimary,
+                Location = new Point(16, 12),
+                AutoSize = true,
+                BackColor = Color.Transparent
+            };
+            toolbarCard.Controls.Add(lblTitulo);
 
-            txtBuscar = new TextBox { Location = new Point(28, 8), Size = new Size(280, 36), Font = AppFonts.Body, BorderStyle = BorderStyle.FixedSingle, PlaceholderText = "Buscar proveedor..." };
+            var lblSubtitulo = new Label
+            {
+                Text = "Gestión de aliados comerciales, contactos y suministros",
+                Font = AppFonts.Small,
+                ForeColor = AppColors.TextSecondary,
+                Location = new Point(18, 42),
+                AutoSize = true,
+                BackColor = Color.Transparent
+            };
+            toolbarCard.Controls.Add(lblSubtitulo);
+
+            // Contenedor de acciones alineado a la derecha
+            var actionsPanel = new FlowLayoutPanel
+            {
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                AutoSize = true,
+                Location = new Point(480, 16),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                BackColor = Color.Transparent,
+                Height = 44
+            };
+
+            UIHelper.CreateSearchInput(actionsPanel, out txtBuscar, 0, 0, 220, 38, "Buscar proveedor...");
             txtBuscar.TextChanged += (s, e) => LoadData(txtBuscar.Text);
-            toolbar.Controls.Add(txtBuscar);
 
-            var btnNuevo = UIHelper.CreatePrimaryButton("＋  Nuevo Proveedor", new Size(170, 40), new Point(320, 6));
+            var btnNuevo = UIHelper.CreatePrimaryButton("＋ NUEVO", new Size(105, 38), new Point(0, 0));
+            btnNuevo.Margin = new Padding(6, 0, 0, 0);
             btnNuevo.Click += (s, e) => OpenForm(null);
-            toolbar.Controls.Add(btnNuevo);
+            actionsPanel.Controls.Add(btnNuevo);
 
-            var btnEditar = UIHelper.CreateSecondaryButton("✏️  Editar", new Size(110, 40), new Point(500, 6));
+            var btnEditar = UIHelper.CreateSecondaryButton("✏️ EDITAR", new Size(95, 38), new Point(0, 0));
+            btnEditar.Margin = new Padding(6, 0, 0, 0);
             btnEditar.Click += (s, e) => { if (_selected == null) { ShowWarn(); return; } OpenForm(_selected); };
-            toolbar.Controls.Add(btnEditar);
+            actionsPanel.Controls.Add(btnEditar);
 
-            var btnEliminar = UIHelper.CreateDangerButton("🗑  Eliminar", new Size(110, 40), new Point(620, 6));
+            var btnEliminar = UIHelper.CreateDangerButton("🗑 BORRAR", new Size(95, 38), new Point(0, 0));
+            btnEliminar.Margin = new Padding(6, 0, 0, 0);
             btnEliminar.Click += (s, e) => { if (_selected == null) { ShowWarn(); return; } DeleteSelected(); };
-            toolbar.Controls.Add(btnEliminar);
+            actionsPanel.Controls.Add(btnEliminar);
 
-            Controls.Add(toolbar);
+            toolbarCard.Controls.Add(actionsPanel);
+            Controls.Add(toolbarCard);
 
-            var card = new CardPanel { Location = new Point(24, 92), Size = new Size(1100, 480), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom };
+            var card = new CardPanel { Location = new Point(24, 100), Size = new Size(1140, 520), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom };
             dgvProveedores = new DataGridView { Dock = DockStyle.Fill };
             UIHelper.StyleDataGridView(dgvProveedores);
             dgvProveedores.Columns.Add("Nombre", "Nombre");
@@ -128,7 +167,7 @@ namespace GestorInventario.Forms
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // FrmProveedor — Supplier detail / create / edit
+    // FrmProveedor — Supplier detail / create / edit (Modal Estándar)
     // ═══════════════════════════════════════════════════════════════
     public class FrmProveedor : Form
     {
@@ -143,7 +182,7 @@ namespace GestorInventario.Forms
         {
             _proveedor = proveedor;
             _isEdit = proveedor != null;
-            Size = new Size(540, 480);
+            Size = new Size(540, 500);
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.None;
             BackColor = Color.White;
@@ -153,35 +192,33 @@ namespace GestorInventario.Forms
 
         private void BuildUI()
         {
-            var header = new Panel { Dock = DockStyle.Top, Height = 60, BackColor = AppColors.Primary };
-            var lblTitle = new Label { Text = _isEdit ? "✏️  Editar Proveedor" : "➕  Nuevo Proveedor", Font = AppFonts.SubHeading, ForeColor = Color.White, Location = new Point(20, 18), AutoSize = true };
-            var btnX = new Label { Text = "✕", Font = new Font("Segoe UI", 16f), ForeColor = Color.White, Cursor = Cursors.Hand, Location = new Point(500, 16), AutoSize = true };
-            btnX.Click += (s, e) => Close();
-            header.Controls.AddRange(new Control[] { lblTitle, btnX });
+            var header = UIHelper.CreateModalHeader(this, _isEdit ? "Editar Proveedor" : "Nuevo Proveedor", _isEdit ? "✏️" : "➕");
             Controls.Add(header);
 
-            int x = 30, y = 80, w = 460;
+            var panelForm = new Panel
+            {
+                Location = new Point(0, 60),
+                Size = new Size(540, 440),
+                BackColor = Color.White,
+                Padding = new Padding(30, 20, 30, 20)
+            };
 
-            AddField("NOMBRE DEL PROVEEDOR *", out txtNombre, x, y, w);      y += 80;
-            AddField("TELÉFONO", out txtTelefono, x, y, w);                  y += 80;
-            AddField("CORREO ELECTRÓNICO", out txtCorreo, x, y, w);          y += 80;
-            AddField("DIRECCIÓN", out txtDireccion, x, y, w);                y += 80;
+            int x = 30, y = 15, w = 470, rowH = 72;
 
-            var btnGuardar = UIHelper.CreatePrimaryButton("💾  Guardar Proveedor", new Size(200, 44), new Point(x, y + 10));
+            UIHelper.CreateRoundedTextBox(panelForm, "NOMBRE DEL PROVEEDOR *", out txtNombre, x, y, w);      y += rowH;
+            UIHelper.CreateRoundedTextBox(panelForm, "TELÉFONO", out txtTelefono, x, y, w);                  y += rowH;
+            UIHelper.CreateRoundedTextBox(panelForm, "CORREO ELECTRÓNICO", out txtCorreo, x, y, w);          y += rowH;
+            UIHelper.CreateRoundedTextBox(panelForm, "DIRECCIÓN", out txtDireccion, x, y, w);                y += rowH + 10;
+
+            var btnGuardar = UIHelper.CreatePrimaryButton("💾 Guardar Proveedor", new Size(190, 42), new Point(x, y));
             btnGuardar.Click += BtnGuardar_Click;
-            Controls.Add(btnGuardar);
+            panelForm.Controls.Add(btnGuardar);
 
-            var btnCancelar = UIHelper.CreateSecondaryButton("✕  Cancelar", new Size(130, 44), new Point(x + 210, y + 10));
+            var btnCancelar = UIHelper.CreateSecondaryButton("✕ Cancelar", new Size(130, 42), new Point(x + 205, y));
             btnCancelar.Click += (s, e) => Close();
-            Controls.Add(btnCancelar);
-        }
+            panelForm.Controls.Add(btnCancelar);
 
-        private void AddField(string label, out TextBox txt, int x, int y, int width)
-        {
-            var lbl = new Label { Text = label, Font = AppFonts.SmallBold, ForeColor = AppColors.TextSecondary, Location = new Point(x, y), AutoSize = true };
-            txt = new TextBox { Location = new Point(x, y + 22), Size = new Size(width, 36), Font = AppFonts.Body, BorderStyle = BorderStyle.FixedSingle };
-            Controls.Add(lbl);
-            Controls.Add(txt);
+            Controls.Add(panelForm);
         }
 
         private void FillData()

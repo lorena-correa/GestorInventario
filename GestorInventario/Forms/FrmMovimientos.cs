@@ -38,15 +38,15 @@ namespace GestorInventario.Forms
         {
             SuspendLayout();
 
-            var formCard = new CardPanel { Location = new Point(24, 24), Size = new Size(560, 500) };
+            var formCard = new CardPanel { Location = new Point(24, 24), Size = new Size(460, 540) };
             Controls.Add(formCard);
 
             var lblFormTitle = new Label { Text = "📥  Registrar Entrada", Font = AppFonts.SubHeading, ForeColor = AppColors.TextPrimary, Location = new Point(20, 16), AutoSize = true, BackColor = Color.Transparent };
             formCard.Controls.Add(lblFormTitle);
-            var divider = new Panel { Location = new Point(20, 46), Size = new Size(520, 1), BackColor = AppColors.Border };
+            var divider = new Panel { Location = new Point(20, 46), Size = new Size(420, 1), BackColor = AppColors.Border };
             formCard.Controls.Add(divider);
 
-            int x = 20, y = 60, w = 510;
+            int x = 20, y = 60, w = 420;
 
             // Producto
             AddComboField(formCard, "PRODUCTO *", out cboProducto, x, y, w);
@@ -69,32 +69,45 @@ namespace GestorInventario.Forms
             y += 76;
 
             // Cantidad | Fecha
-            AddTextField(formCard, "CANTIDAD *", out txtCantidad, x, y, 240);
-            var lblF = new Label { Text = "FECHA *", Font = AppFonts.SmallBold, ForeColor = AppColors.TextSecondary, Location = new Point(x + 260, y), AutoSize = true, BackColor = Color.Transparent };
-            dtpFecha = new DateTimePicker { Location = new Point(x + 260, y + 22), Size = new Size(250, 36), Font = AppFonts.Body, Format = DateTimePickerFormat.Short };
+            AddTextField(formCard, "CANTIDAD *", out txtCantidad, x, y, 190);
+            var lblF = new Label { Text = "FECHA *", Font = AppFonts.SmallBold, ForeColor = AppColors.TextSecondary, Location = new Point(x + 210, y), AutoSize = true, BackColor = Color.Transparent };
+            dtpFecha = new DateTimePicker { Location = new Point(x + 210, y + 22), Size = new Size(210, 36), Font = AppFonts.Body, Format = DateTimePickerFormat.Short };
             formCard.Controls.Add(lblF);
             formCard.Controls.Add(dtpFecha);
             y += 76;
 
             // Observación
             AddTextField(formCard, "OBSERVACIÓN", out txtObservacion, x, y, w, multiline: true);
-            txtObservacion.Height = 72;
-            y += 108;
+            txtObservacion.Height = 65;
+            y += 100;
 
-            var btnGuardar = UIHelper.CreatePrimaryButton("💾  Registrar Entrada", new Size(200, 44), new Point(x, y));
+            var btnGuardar = UIHelper.CreatePrimaryButton("💾 Registrar Entrada", new Size(180, 42), new Point(x, y));
             btnGuardar.Click += BtnGuardar_Click;
             formCard.Controls.Add(btnGuardar);
 
-            var btnLimpiar = UIHelper.CreateSecondaryButton("🗑  Limpiar", new Size(120, 44), new Point(x + 210, y));
+            var btnLimpiar = UIHelper.CreateSecondaryButton("🗑 Limpiar", new Size(110, 42), new Point(x + 195, y));
             btnLimpiar.Click += (s, e) => Limpiar();
             formCard.Controls.Add(btnLimpiar);
 
-            // Tabla recientes
-            var lblRecent = new Label { Text = "Entradas Recientes", Font = AppFonts.SubHeading, ForeColor = AppColors.TextPrimary, Location = new Point(608, 24), AutoSize = true, BackColor = Color.Transparent };
-            Controls.Add(lblRecent);
+            // Tabla recientes (Empieza en Y=24 con margen derecho y fondo)
+            var tableCard = new CardPanel
+            {
+                Location = new Point(508, 24),
+                Size = new Size(640, 540),
+                Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom
+            };
 
-            var tableCard = new CardPanel { Location = new Point(608, 56), Size = new Size(680, 468) };
-            dgvRecientes = new DataGridView { Dock = DockStyle.Fill };
+            var lblRecent = new Label { Text = "📋  Entradas Recientes", Font = AppFonts.SubHeading, ForeColor = AppColors.TextPrimary, Location = new Point(20, 16), AutoSize = true, BackColor = Color.Transparent };
+            tableCard.Controls.Add(lblRecent);
+            var divTable = new Panel { Location = new Point(20, 46), Size = new Size(tableCard.Width - 40, 1), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right, BackColor = AppColors.Border };
+            tableCard.Controls.Add(divTable);
+
+            dgvRecientes = new DataGridView
+            {
+                Location = new Point(20, 58),
+                Size = new Size(tableCard.Width - 40, tableCard.Height - 78),
+                Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom
+            };
             UIHelper.StyleDataGridView(dgvRecientes);
             dgvRecientes.Columns.Add("Producto", "Producto");
             dgvRecientes.Columns.Add("Proveedor", "Proveedor");
@@ -102,6 +115,7 @@ namespace GestorInventario.Forms
             dgvRecientes.Columns.Add("Usuario", "Usuario");
             dgvRecientes.Columns.Add("Fecha", "Fecha");
             tableCard.Controls.Add(dgvRecientes);
+
             Controls.Add(tableCard);
 
             ResumeLayout();
@@ -249,15 +263,15 @@ namespace GestorInventario.Forms
         {
             SuspendLayout();
 
-            var formCard = new CardPanel { Location = new Point(24, 24), Size = new Size(560, 480) };
+            var formCard = new CardPanel { Location = new Point(24, 24), Size = new Size(460, 540) };
             Controls.Add(formCard);
 
             var lblTitle = new Label { Text = "📤  Registrar Salida", Font = AppFonts.SubHeading, ForeColor = AppColors.TextPrimary, Location = new Point(20, 16), AutoSize = true, BackColor = Color.Transparent };
             formCard.Controls.Add(lblTitle);
-            var div = new Panel { Location = new Point(20, 46), Size = new Size(520, 1), BackColor = AppColors.Border };
+            var div = new Panel { Location = new Point(20, 46), Size = new Size(420, 1), BackColor = AppColors.Border };
             formCard.Controls.Add(div);
 
-            int x = 20, y = 60, w = 510;
+            int x = 20, y = 60, w = 420;
 
             // Producto + stock disponible
             var lblP = new Label { Text = "PRODUCTO *", Font = AppFonts.SmallBold, ForeColor = AppColors.TextSecondary, Location = new Point(x, y), AutoSize = true, BackColor = Color.Transparent };
@@ -297,9 +311,9 @@ namespace GestorInventario.Forms
 
             // Cantidad | Fecha
             var lblCant = new Label { Text = "CANTIDAD *", Font = AppFonts.SmallBold, ForeColor = AppColors.TextSecondary, Location = new Point(x, y), AutoSize = true, BackColor = Color.Transparent };
-            txtCantidad = new TextBox { Location = new Point(x, y + 22), Size = new Size(240, 36), Font = AppFonts.Body, BorderStyle = BorderStyle.FixedSingle };
-            var lblF = new Label { Text = "FECHA *", Font = AppFonts.SmallBold, ForeColor = AppColors.TextSecondary, Location = new Point(x + 260, y), AutoSize = true, BackColor = Color.Transparent };
-            dtpFecha = new DateTimePicker { Location = new Point(x + 260, y + 22), Size = new Size(250, 36), Font = AppFonts.Body, Format = DateTimePickerFormat.Short };
+            txtCantidad = new TextBox { Location = new Point(x, y + 22), Size = new Size(190, 36), Font = AppFonts.Body, BorderStyle = BorderStyle.FixedSingle };
+            var lblF = new Label { Text = "FECHA *", Font = AppFonts.SmallBold, ForeColor = AppColors.TextSecondary, Location = new Point(x + 210, y), AutoSize = true, BackColor = Color.Transparent };
+            dtpFecha = new DateTimePicker { Location = new Point(x + 210, y + 22), Size = new Size(210, 36), Font = AppFonts.Body, Format = DateTimePickerFormat.Short };
             formCard.Controls.Add(lblCant); formCard.Controls.Add(txtCantidad);
             formCard.Controls.Add(lblF); formCard.Controls.Add(dtpFecha);
             y += 76;
@@ -311,20 +325,33 @@ namespace GestorInventario.Forms
             formCard.Controls.Add(txtObservacion);
             y += 96;
 
-            var btnGuardar = UIHelper.CreateDangerButton("💾  Registrar Salida", new Size(200, 44), new Point(x, y));
+            var btnGuardar = UIHelper.CreateDangerButton("💾 Registrar Salida", new Size(180, 42), new Point(x, y));
             btnGuardar.Click += BtnGuardar_Click;
             formCard.Controls.Add(btnGuardar);
 
-            var btnLimpiar = UIHelper.CreateSecondaryButton("🗑  Limpiar", new Size(120, 44), new Point(x + 210, y));
+            var btnLimpiar = UIHelper.CreateSecondaryButton("🗑 Limpiar", new Size(110, 42), new Point(x + 195, y));
             btnLimpiar.Click += (s, e) => Limpiar();
             formCard.Controls.Add(btnLimpiar);
 
-            // Tabla recientes
-            var lblRecent = new Label { Text = "Salidas Recientes", Font = AppFonts.SubHeading, ForeColor = AppColors.TextPrimary, Location = new Point(608, 24), AutoSize = true, BackColor = Color.Transparent };
-            Controls.Add(lblRecent);
+            // Tabla recientes (Empieza en Y=24 con margen derecho y fondo)
+            var tableCard = new CardPanel
+            {
+                Location = new Point(508, 24),
+                Size = new Size(640, 540),
+                Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom
+            };
 
-            var tableCard = new CardPanel { Location = new Point(608, 56), Size = new Size(680, 448) };
-            dgvRecientes = new DataGridView { Dock = DockStyle.Fill };
+            var lblRecent = new Label { Text = "📋  Salidas Recientes", Font = AppFonts.SubHeading, ForeColor = AppColors.TextPrimary, Location = new Point(20, 16), AutoSize = true, BackColor = Color.Transparent };
+            tableCard.Controls.Add(lblRecent);
+            var divTable = new Panel { Location = new Point(20, 46), Size = new Size(tableCard.Width - 40, 1), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right, BackColor = AppColors.Border };
+            tableCard.Controls.Add(divTable);
+
+            dgvRecientes = new DataGridView
+            {
+                Location = new Point(20, 58),
+                Size = new Size(tableCard.Width - 40, tableCard.Height - 78),
+                Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom
+            };
             UIHelper.StyleDataGridView(dgvRecientes);
             dgvRecientes.Columns.Add("Producto", "Producto");
             dgvRecientes.Columns.Add("Cantidad", "Cantidad");
@@ -332,6 +359,7 @@ namespace GestorInventario.Forms
             dgvRecientes.Columns.Add("Usuario", "Usuario");
             dgvRecientes.Columns.Add("Fecha", "Fecha");
             tableCard.Controls.Add(dgvRecientes);
+
             Controls.Add(tableCard);
 
             ResumeLayout();

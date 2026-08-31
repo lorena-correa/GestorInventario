@@ -28,55 +28,81 @@ namespace GestorInventario.Forms
             SuspendLayout();
 
             // ── Toolbar ─────────────────────────────────────────────────
-            var toolbar = new Panel
+            var toolbarCard = new CardPanel
             {
-                Location = new Point(24, 24),
-                Size = new Size(1200, 52),
-                BackColor = Color.Transparent,
+                Location = new Point(24, 16),
+                Size = new Size(1140, 72),
                 Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right
             };
 
-            var lblSearch = new Label { Text = "🔍", Font = new Font("Segoe UI Emoji", 12f), Location = new Point(0, 12), AutoSize = true, BackColor = Color.Transparent };
-            toolbar.Controls.Add(lblSearch);
-
-            txtBuscar = new TextBox
+            var lblTitulo = new Label
             {
-                Location = new Point(28, 8),
-                Size = new Size(300, 36),
-                Font = AppFonts.Body,
-                BorderStyle = BorderStyle.FixedSingle,
-                PlaceholderText = "Buscar producto..."
+                Text = "📦  ADMINISTRACIÓN DE PRODUCTOS",
+                Font = AppFonts.Heading,
+                ForeColor = AppColors.TextPrimary,
+                Location = new Point(16, 12),
+                AutoSize = true,
+                BackColor = Color.Transparent
             };
+            toolbarCard.Controls.Add(lblTitulo);
+
+            var lblSubtitulo = new Label
+            {
+                Text = "Catálogo general, control de precios de compra/venta y niveles de stock",
+                Font = AppFonts.Small,
+                ForeColor = AppColors.TextSecondary,
+                Location = new Point(18, 42),
+                AutoSize = true,
+                BackColor = Color.Transparent
+            };
+            toolbarCard.Controls.Add(lblSubtitulo);
+
+            // Contenedor de acciones alineado a la derecha
+            var actionsPanel = new FlowLayoutPanel
+            {
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                AutoSize = true,
+                Location = new Point(480, 16),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                BackColor = Color.Transparent,
+                Height = 44
+            };
+
+            UIHelper.CreateSearchInput(actionsPanel, out txtBuscar, 0, 0, 220, 38, "Buscar producto...");
             txtBuscar.TextChanged += (s, e) => LoadData(txtBuscar.Text);
-            toolbar.Controls.Add(txtBuscar);
 
-            var btnAgregar = UIHelper.CreatePrimaryButton("＋  Nuevo Producto", new Size(160, 40), new Point(340, 6));
+            var btnAgregar = UIHelper.CreatePrimaryButton("＋ NUEVO", new Size(105, 38), new Point(0, 0));
+            btnAgregar.Margin = new Padding(6, 0, 0, 0);
             btnAgregar.Click += (s, e) => OpenProductForm(null);
-            toolbar.Controls.Add(btnAgregar);
+            actionsPanel.Controls.Add(btnAgregar);
 
-            var btnEditar = UIHelper.CreateSecondaryButton("✏️  Editar", new Size(110, 40), new Point(510, 6));
+            var btnEditar = UIHelper.CreateSecondaryButton("✏️ EDITAR", new Size(95, 38), new Point(0, 0));
+            btnEditar.Margin = new Padding(6, 0, 0, 0);
             btnEditar.Click += (s, e) =>
             {
                 if (_selectedProduct == null) { ShowSelectWarning(); return; }
                 OpenProductForm(_selectedProduct);
             };
-            toolbar.Controls.Add(btnEditar);
+            actionsPanel.Controls.Add(btnEditar);
 
-            var btnEliminar = UIHelper.CreateDangerButton("🗑  Eliminar", new Size(110, 40), new Point(630, 6));
+            var btnEliminar = UIHelper.CreateDangerButton("🗑 BORRAR", new Size(95, 38), new Point(0, 0));
+            btnEliminar.Margin = new Padding(6, 0, 0, 0);
             btnEliminar.Click += (s, e) =>
             {
                 if (_selectedProduct == null) { ShowSelectWarning(); return; }
                 ConfirmDelete();
             };
-            toolbar.Controls.Add(btnEliminar);
+            actionsPanel.Controls.Add(btnEliminar);
 
-            Controls.Add(toolbar);
+            toolbarCard.Controls.Add(actionsPanel);
+            Controls.Add(toolbarCard);
 
             // ── DataGridView card ────────────────────────────────────────
             var tableCard = new CardPanel
             {
-                Location = new Point(24, 92),
-                Size = new Size(1200, 500),
+                Location = new Point(24, 100),
+                Size = new Size(1140, 520),
                 Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom
             };
 
@@ -196,5 +222,10 @@ namespace GestorInventario.Forms
 
         private void ShowSelectWarning() =>
             MessageBox.Show("Selecciona un producto de la lista.", "Selección requerida", MessageBoxButtons.OK, MessageBoxIcon.Information);
+    }
+
+    // Alias para la guía
+    public class frmlista_productos : FrmProductos
+    {
     }
 }

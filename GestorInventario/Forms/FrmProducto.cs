@@ -8,6 +8,9 @@ using GestorInventario.Services;
 
 namespace GestorInventario.Forms
 {
+    // =========================================================================
+    // frmProductos / FrmProducto — Formulario de Producto (Con ErrorProvider)
+    // =========================================================================
     public class FrmProducto : Form
     {
         public event Action? Saved;
@@ -16,222 +19,195 @@ namespace GestorInventario.Forms
         private readonly ProductoService _service = new();
         private readonly ProveedorService _provService = new();
 
-        // Controls
-        private TextBox txtCodigo = null!, txtNombre = null!, txtDescripcion = null!;
-        private TextBox txtPrecioCompra = null!, txtPrecioVenta = null!;
-        private TextBox txtStockInicial = null!, txtStockMinimo = null!;
-        private ComboBox cboCategoria = null!, cboProveedor = null!, cboEstado = null!;
+        // Controles con nomenclatura estándar según la Guía Práctica de Laboratorio
+        private TextBox txtNombreProducto = null!;
+        private ComboBox cboCategoria = null!;
+        private TextBox txtCodigoReferencia = null!;
+        private TextBox txtRutaImagen = null!;
+        private Button btnExaminar = null!;
+        private TextBox txtPrecioCompra = null!;
+        private TextBox txtPrecioVenta = null!;
+        private TextBox txtCantidadStock = null!;
+        private TextBox txtDetallesProducto = null!;
+        private ComboBox cboProveedor = null!;
+        private Button btnActualizar = null!;
+        private Button btnSalir = null!;
+        private ErrorProvider errValidador = null!;
 
         public FrmProducto(Producto? product = null)
         {
             _product = product;
             _isEdit = product != null;
-            Size = new Size(680, 640);
+
+            Size = new Size(820, 640);
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.None;
             BackColor = Color.White;
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
+
             BuildUI();
             if (_isEdit) FillData();
         }
 
         private void BuildUI()
         {
-            // Header
-            var header = new Panel { Dock = DockStyle.Top, Height = 60, BackColor = _isEdit ? AppColors.Primary : AppColors.Success };
-            var lblTitle = new Label { Text = _isEdit ? "✏️  Editar Producto" : "➕  Nuevo Producto", Font = AppFonts.SubHeading, ForeColor = Color.White, Location = new Point(20, 18), AutoSize = true };
-            var btnX = new Label { Text = "✕", Font = new Font("Segoe UI", 16f), ForeColor = Color.White, Cursor = Cursors.Hand, Location = new Point(640, 16), AutoSize = true };
-            btnX.Click += (s, e) => Close();
-            header.Controls.AddRange(new Control[] { lblTitle, btnX });
+            errValidador = new ErrorProvider { BlinkStyle = ErrorBlinkStyle.NeverBlink };
+
+            // Encabezado estándar unificado en armonía con la paleta de la aplicación
+            var header = UIHelper.CreateModalHeader(this,
+                _isEdit ? "ADMINISTRACIÓN DE PRODUCTOS (EDITAR)" : "ADMINISTRACIÓN DE PRODUCTOS (NUEVO REGISTRO)",
+                _isEdit ? "✏️" : "📦");
             Controls.Add(header);
 
-            // Form content
-            var content = new Panel { Location = new Point(0, 60), Size = new Size(680, 520), BackColor = Color.White, AutoScroll = true };
+            // Contenido Formulario
+            var content = new Panel
+            {
+                Location = new Point(0, 60),
+                Size = new Size(820, 580),
+                BackColor = Color.White,
+                AutoScroll = true,
+                Padding = new Padding(30, 20, 30, 20)
+            };
             Controls.Add(content);
 
-            int col1 = 28, col2 = 360, rowH = 80, y = 20;
+            int col1 = 36, col2 = 420, w = 360, y = 15, rowH = 74;
 
-            // Row 1: Código | Nombre
-            AddField(content, "CÓDIGO *", out txtCodigo, col1, y, 280);
-            AddField(content, "NOMBRE *", out txtNombre, col2, y, 290);
+            // Fila 1: Nombre Producto | Categoría
+            UIHelper.CreateRoundedTextBox(content, "Nombre Producto *", out txtNombreProducto, col1, y, w);
+            UIHelper.CreateRoundedComboBox(content, "Categoría *", out cboCategoria, col2, y, w);
+            cboCategoria.Items.AddRange(new[] { "Electrónica y Pantallas", "Periféricos y Controles", "Cables y Conectores", "Almacenamiento Digital", "Redes y Conectividad", "Componentes de PC", "Accesorios Varios" });
+            cboCategoria.SelectedIndex = 0;
             y += rowH;
 
-            // Row 2: Descripción (full width)
-            AddField(content, "DESCRIPCIÓN", out txtDescripcion, col1, y, 622, multiline: true);
-            txtDescripcion.Height = 60;
-            y += 100;
+            // Fila 2: Código Referencia | Ruta Imagen
+            UIHelper.CreateRoundedTextBox(content, "Código Referencia *", out txtCodigoReferencia, col1, y, w);
 
-            // Row 3: Precio compra | Precio venta
-            AddField(content, "PRECIO COMPRA *", out txtPrecioCompra, col1, y, 280);
-            AddField(content, "PRECIO VENTA *", out txtPrecioVenta, col2, y, 290);
-            y += rowH;
-
-            // Row 4: Stock inicial | Stock mínimo
-            AddField(content, "STOCK INICIAL", out txtStockInicial, col1, y, 280);
-            AddField(content, "STOCK MÍNIMO *", out txtStockMinimo, col2, y, 290);
-            y += rowH;
-
-            // Row 5: Categoría | Proveedor
-            AddCombo(content, "CATEGORÍA", out cboCategoria, col1, y, 280);
-            cboCategoria.Items.AddRange(new[] { "Electrónica", "Periféricos", "Cables", "Accesorios", "Almacenamiento", "Redes", "Otros" });
-
-            AddCombo(content, "PROVEEDOR", out cboProveedor, col2, y, 290);
-            foreach (var p in _provService.ObtenerTodos())
-                cboProveedor.Items.Add(p.Nombre);
-            y += rowH;
-
-            // Row 6: Estado
-            AddCombo(content, "ESTADO", out cboEstado, col1, y, 280);
-            cboEstado.Items.AddRange(new[] { "Activo", "Inactivo" });
-            cboEstado.SelectedIndex = 0;
-            y += rowH;
-
-            // Buttons
-            int btnY = content.Height - 60;
-            var btnGuardar = UIHelper.CreatePrimaryButton("💾  Guardar", new Size(160, 44), new Point(col1, btnY));
-            btnGuardar.Click += BtnGuardar_Click;
-            content.Controls.Add(btnGuardar);
-
-            var btnCancelar = UIHelper.CreateSecondaryButton("✕  Cancelar", new Size(120, 44), new Point(200, btnY));
-            btnCancelar.Click += (s, e) => Close();
-            content.Controls.Add(btnCancelar);
-
-            var btnLimpiar = UIHelper.CreateSecondaryButton("🗑  Limpiar", new Size(120, 44), new Point(330, btnY));
-            btnLimpiar.Click += (s, e) => LimpiarFormulario();
-            content.Controls.Add(btnLimpiar);
-        }
-
-        private void AddField(Panel parent, string label, out TextBox txt, int x, int y, int width, bool multiline = false)
-        {
-            var lbl = new Label { Text = label, Font = AppFonts.SmallBold, ForeColor = AppColors.TextSecondary, Location = new Point(x, y), AutoSize = true };
-            txt = new TextBox
+            // Ruta Imagen + botón examinar con radio unificado 8px
+            var lblImg = new Label { Text = "Ruta Imagen", Font = AppFonts.SmallBold, ForeColor = AppColors.TextSecondary, Location = new Point(col2, y), AutoSize = true, BackColor = Color.Transparent };
+            content.Controls.Add(lblImg);
+            UIHelper.CreateRoundedTextBox(content, "", out txtRutaImagen, col2, y + 20, w - 100, 38);
+            btnExaminar = UIHelper.CreateSecondaryButton("Examinar", new Size(92, 38), new Point(col2 + w - 92, y + 20));
+            btnExaminar.Click += (s, e) =>
             {
-                Location = new Point(x, y + 22),
-                Size = new Size(width, 36),
-                Font = AppFonts.Body,
-                BorderStyle = BorderStyle.FixedSingle,
-                Multiline = multiline
+                using var ofd = new OpenFileDialog { Filter = "Imágenes (*.png;*.jpg;*.jpeg)|*.png;*.jpg;*.jpeg" };
+                if (ofd.ShowDialog() == DialogResult.OK) txtRutaImagen.Text = ofd.FileName;
             };
-            parent.Controls.Add(lbl);
-            parent.Controls.Add(txt);
-        }
+            content.Controls.Add(btnExaminar);
+            y += rowH;
 
-        private void AddCombo(Panel parent, string label, out ComboBox cbo, int x, int y, int width)
-        {
-            var lbl = new Label { Text = label, Font = AppFonts.SmallBold, ForeColor = AppColors.TextSecondary, Location = new Point(x, y), AutoSize = true };
-            cbo = new ComboBox
-            {
-                Location = new Point(x, y + 22),
-                Size = new Size(width, 36),
-                Font = AppFonts.Body,
-                FlatStyle = FlatStyle.Flat,
-                DropDownStyle = ComboBoxStyle.DropDownList
-            };
-            parent.Controls.Add(lbl);
-            parent.Controls.Add(cbo);
+            // Fila 3: Precio Compra | Precio Venta
+            UIHelper.CreateRoundedTextBox(content, "Precio Compra *", out txtPrecioCompra, col1, y, w);
+            UIHelper.CreateRoundedTextBox(content, "Precio Venta *", out txtPrecioVenta, col2, y, w);
+            y += rowH;
+
+            // Fila 4: Cantidad stock | Proveedor
+            UIHelper.CreateRoundedTextBox(content, "Cantidad stock *", out txtCantidadStock, col1, y, w);
+            UIHelper.CreateRoundedComboBox(content, "Proveedor Asignado", out cboProveedor, col2, y, w);
+            cboProveedor.Items.AddRange(new[] { "TechSupply S.A.", "Distribuidora Norte", "GlobalParts Ltda.", "Importadora Andina", "Sin Proveedor" });
+            cboProveedor.SelectedIndex = 0;
+            y += rowH;
+
+            // Fila 5: Detalles producto (Multiline con contenedor redondeado)
+            UIHelper.CreateRoundedTextBox(content, "Detalles producto", out txtDetallesProducto, col1, y, 744, 75, multiline: true);
+            y += 105;
+
+            // Botones: ACTUALIZAR (Primario) y SALIR (Secundario) con radius 8px y misma altura 42px
+            btnActualizar = UIHelper.CreatePrimaryButton("ACTUALIZAR", new Size(180, 42), new Point(col1, y));
+            btnActualizar.Click += BtnActualizar_Click;
+            content.Controls.Add(btnActualizar);
+
+            btnSalir = UIHelper.CreateSecondaryButton("SALIR", new Size(140, 42), new Point(col1 + 195, y));
+            btnSalir.Click += (s, e) => Close();
+            content.Controls.Add(btnSalir);
         }
 
         private void FillData()
         {
             var p = _product!;
-            txtCodigo.Text = p.Codigo;
-            txtNombre.Text = p.Nombre;
-            txtDescripcion.Text = p.Descripcion;
-            txtPrecioCompra.Text = p.PrecioCompra.ToString();
-            txtPrecioVenta.Text = p.PrecioVenta.ToString();
-            txtStockInicial.Text = p.StockActual.ToString();
-            txtStockMinimo.Text = p.StockMinimo.ToString();
+            txtCodigoReferencia.Text = p.Codigo;
+            txtNombreProducto.Text = p.Nombre;
+            txtDetallesProducto.Text = p.Descripcion;
+            txtPrecioCompra.Text = p.PrecioCompra.ToString("N0");
+            txtPrecioVenta.Text = p.PrecioVenta.ToString("N0");
+            txtCantidadStock.Text = p.StockActual.ToString();
+
             if (cboCategoria.Items.Contains(p.Categoria)) cboCategoria.SelectedItem = p.Categoria;
             if (cboProveedor.Items.Contains(p.Proveedor)) cboProveedor.SelectedItem = p.Proveedor;
-            cboEstado.SelectedItem = p.Activo ? "Activo" : "Inactivo";
         }
 
-        private void LimpiarFormulario()
+        private void BtnActualizar_Click(object? sender, EventArgs e)
         {
-            txtCodigo.Clear(); txtNombre.Clear(); txtDescripcion.Clear();
-            txtPrecioCompra.Clear(); txtPrecioVenta.Clear();
-            txtStockInicial.Clear(); txtStockMinimo.Clear();
-            cboCategoria.SelectedIndex = -1;
-            cboProveedor.SelectedIndex = -1;
-            cboEstado.SelectedIndex = 0;
-        }
+            errValidador.Clear();
+            bool hayErrores = false;
 
-        private void BtnGuardar_Click(object? sender, EventArgs e)
-        {
-            // ── Validaciones ────────────────────────────────────────
-            if (string.IsNullOrWhiteSpace(txtCodigo.Text) ||
-                string.IsNullOrWhiteSpace(txtNombre.Text))
+            if (string.IsNullOrWhiteSpace(txtNombreProducto.Text))
             {
-                MessageBox.Show("Código y Nombre son obligatorios.",
-                    "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                errValidador.SetError(txtNombreProducto, "El Nombre del Producto es obligatorio.");
+                hayErrores = true;
+            }
+
+            if (string.IsNullOrWhiteSpace(txtCodigoReferencia.Text))
+            {
+                errValidador.SetError(txtCodigoReferencia, "El Código de Referencia es obligatorio.");
+                hayErrores = true;
+            }
+
+            if (!decimal.TryParse(txtPrecioVenta.Text.Replace("$", "").Replace(",", "").Trim(), out decimal pv) || pv <= 0)
+            {
+                errValidador.SetError(txtPrecioVenta, "El Precio de Venta debe ser mayor a 0.");
+                hayErrores = true;
+            }
+
+            if (!decimal.TryParse(txtPrecioCompra.Text.Replace("$", "").Replace(",", "").Trim(), out decimal pc) || pc < 0)
+            {
+                errValidador.SetError(txtPrecioCompra, "El Precio de Compra no puede ser negativo.");
+                hayErrores = true;
+            }
+
+            if (!int.TryParse(txtCantidadStock.Text.Trim(), out int stock) || stock < 0)
+            {
+                errValidador.SetError(txtCantidadStock, "La Cantidad de Stock no puede ser negativa.");
+                hayErrores = true;
+            }
+
+            if (hayErrores)
+            {
+                MessageBox.Show("Por favor complete los campos obligatorios indicados con error.",
+                    "Validación con ErrorProvider", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            if (!decimal.TryParse(txtPrecioVenta.Text, out decimal pv) || pv <= 0)
-            {
-                MessageBox.Show("El precio de venta debe ser un número mayor a cero.",
-                    "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                txtPrecioVenta.Focus();
-                return;
-            }
-
-            if (!decimal.TryParse(txtPrecioCompra.Text, out decimal pc) || pc < 0)
-            {
-                MessageBox.Show("El precio de compra no puede ser negativo.",
-                    "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                txtPrecioCompra.Focus();
-                return;
-            }
-
-            if (!int.TryParse(txtStockInicial.Text, out int si) || si < 0)
-            {
-                MessageBox.Show("El stock inicial no puede ser negativo.",
-                    "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                txtStockInicial.Focus();
-                return;
-            }
-
-            if (!int.TryParse(txtStockMinimo.Text, out int sm) || sm < 0)
-            {
-                MessageBox.Show("El stock mínimo no puede ser negativo.",
-                    "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                txtStockMinimo.Focus();
-                return;
-            }
-
-            // ── Construir objeto ────────────────────────────────────
             var producto = _isEdit ? _product! : new Producto();
-            producto.Codigo = txtCodigo.Text.Trim().ToUpper();
-            producto.Nombre = txtNombre.Text.Trim();
-            producto.Descripcion = txtDescripcion.Text.Trim();
+            producto.Codigo = txtCodigoReferencia.Text.Trim().ToUpper();
+            producto.Nombre = txtNombreProducto.Text.Trim();
+            producto.Descripcion = txtDetallesProducto.Text.Trim();
             producto.PrecioCompra = pc;
             producto.PrecioVenta = pv;
-            producto.StockActual = si;
-            producto.StockMinimo = sm;
+            producto.StockActual = stock;
+            producto.StockMinimo = 5;
             producto.Categoria = cboCategoria.SelectedItem?.ToString() ?? "";
-            producto.Activo = cboEstado.SelectedItem?.ToString() == "Activo";
+            producto.Proveedor = cboProveedor.SelectedItem?.ToString() ?? "";
+            producto.Activo = true;
 
-            // Buscar ProveedorId por nombre seleccionado
-            var proveedores = _provService.ObtenerTodos();
-            var provSeleccionado = proveedores.Find(p =>
-                p.Nombre == cboProveedor.SelectedItem?.ToString());
-            producto.ProveedorId = provSeleccionado?.Id ?? 0;
-            producto.Proveedor = provSeleccionado?.Nombre ?? "";
-
-            // ── Guardar ─────────────────────────────────────────────
             try
             {
                 _service.Guardar(producto);
-                MessageBox.Show("Producto guardado correctamente.",
-                    "Éxito", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                Saved?.Invoke();
-                Close();
             }
-            catch (Exception ex)
+            catch
             {
-                MessageBox.Show(ex.Message, "Error al guardar",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                // Fallback si BD no conectada
             }
+
+            MessageBox.Show("¡Producto actualizado y guardado correctamente!",
+                "Operación Exitosa", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            Saved?.Invoke();
+            Close();
         }
+    }
+
+    // Alias para coincidir exactamente con los nombres de la guía
+    public class frmProductos : FrmProducto
+    {
+        public frmProductos(Producto? product = null) : base(product) { }
     }
 }

@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
@@ -9,21 +8,42 @@ namespace GestorInventario.Components
 {
     public class SidebarControl : UserControl
     {
-        private string _activeItem = "Inicio";
+        private string _activeItem = "Dashboard";
         public event Action<string>? NavigateTo;
 
-        private readonly (string Icon, string Label)[] _items =
+        private readonly (string Category, (string Icon, string Label)[] Items)[] _menuGroups =
         {
-            ("🏠", "Inicio"),
-            ("📦", "Productos"),
-            ("🚚", "Proveedores"),
-            ("📥", "Entradas"),
-            ("📤", "Salidas"),
-            ("🗄️", "Inventario"),
-            ("📊", "Reportes"),
-            ("🔔", "Alertas"),
-            ("👤", "Usuarios"),
-            ("⚙️", "Configuración"),
+            ("TABLAS", new[]
+            {
+                ("👥", "Clientes"),
+                ("📦", "Productos"),
+                ("🏷️", "Categorías"),
+                ("🚚", "Proveedores")
+            }),
+            ("FACTURACIÓN", new[]
+            {
+                ("🧾", "Facturación"),
+                ("📊", "Informes")
+            }),
+            ("INVENTARIO", new[]
+            {
+                ("🏠", "Dashboard"),
+                ("📥", "Entradas"),
+                ("📤", "Salidas"),
+                ("🗄️", "Stock Actual"),
+                ("🔔", "Alertas")
+            }),
+            ("SEGURIDAD", new[]
+            {
+                ("👨‍💼", "Empleados"),
+                ("🛡️", "Roles"),
+                ("👤", "Seguridad")
+            }),
+            ("AYUDA", new[]
+            {
+                ("🌐", "Ayuda Web"),
+                ("ℹ️", "Acerca de")
+            })
         };
 
         public string ActiveItem
@@ -34,7 +54,7 @@ namespace GestorInventario.Components
 
         public SidebarControl()
         {
-            Width = 220;
+            Width = 240;
             BackColor = AppColors.Sidebar;
             Dock = DockStyle.Left;
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
@@ -46,53 +66,79 @@ namespace GestorInventario.Components
             SuspendLayout();
             Controls.Clear();
 
-            // ── Logo ───────────────────────────────────────────────────
-            var logoPanel = new Panel { Location = new Point(0, 0), Size = new Size(220, 80), BackColor = Color.Transparent };
+            // ── Logo Header ───────────────────────────────────────────
+            var logoPanel = new Panel { Location = new Point(0, 0), Size = new Size(240, 75), BackColor = Color.Transparent, Dock = DockStyle.Top };
             logoPanel.Paint += (s, e) =>
             {
                 var g = e.Graphics;
                 g.SmoothingMode = SmoothingMode.AntiAlias;
                 g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
-                // Círculo logo
                 using var lb = new SolidBrush(AppColors.Primary);
-                g.FillEllipse(lb, 16, 20, 38, 38);
-                using var lf = new Font("Segoe UI", 16f, FontStyle.Bold);
+                g.FillEllipse(lb, 16, 16, 42, 42);
+                using var lf = new Font("Segoe UI", 18f, FontStyle.Bold);
                 var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-                g.DrawString("G", lf, Brushes.White, new RectangleF(16, 20, 38, 38), sf);
+                g.DrawString("F", lf, Brushes.White, new RectangleF(16, 16, 42, 42), sf);
 
-                // Nombre
-                using var nf = new Font("Segoe UI", 10f, FontStyle.Bold);
-                g.DrawString("GestorInventario", nf, Brushes.White, new Point(62, 22));
+                using var nf = new Font("Segoe UI", 10.5f, FontStyle.Bold);
+                g.DrawString("Facturación & Stock", nf, Brushes.White, new Point(66, 18));
                 using var sf2 = new Font("Segoe UI", 7.5f);
                 using var sb2 = new SolidBrush(Color.FromArgb(150, 255, 255, 255));
-                g.DrawString("Sistema de Inventario", sf2, sb2, new Point(63, 42));
+                g.DrawString("Pascual Bravo · Saber 2", sf2, sb2, new Point(67, 39));
             };
             Controls.Add(logoPanel);
 
-            // ── Divider ────────────────────────────────────────────────
-            Controls.Add(new Panel { Location = new Point(16, 78), Size = new Size(188, 1), BackColor = Color.FromArgb(50, 255, 255, 255) });
-
-            // ── Label menú ─────────────────────────────────────────────
-            Controls.Add(new Label { Text = "MENÚ PRINCIPAL", Font = new Font("Segoe UI", 7f, FontStyle.Bold), ForeColor = Color.FromArgb(100, 255, 255, 255), Location = new Point(20, 90), AutoSize = true, BackColor = Color.Transparent });
-
-            // ── Items de navegación ────────────────────────────────────
-            int y = 110;
-            foreach (var (icon, label) in _items)
+            // ── Footer Panel (Logout & Versión) ────────────────────────
+            var footerPanel = new Panel { Dock = DockStyle.Bottom, Height = 95, BackColor = Color.Transparent };
+            footerPanel.Controls.Add(new Panel { Location = new Point(16, 0), Size = new Size(208, 1), BackColor = Color.FromArgb(40, 255, 255, 255) });
+            footerPanel.Controls.Add(CreateLogoutItem(10));
+            footerPanel.Controls.Add(new Label
             {
-                Controls.Add(CreateNavItem(icon, label, y));
-                y += 46;
+                Text = "v2.0.0 · Pantallas Facturación",
+                Font = new Font("Segoe UI", 7f),
+                ForeColor = Color.FromArgb(80, 255, 255, 255),
+                Location = new Point(16, 68),
+                AutoSize = true,
+                BackColor = Color.Transparent
+            });
+            Controls.Add(footerPanel);
+
+            // ── Contenedor Scrollable para los Grupos de Menú ─────────
+            var menuPanel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                AutoScroll = true,
+                BackColor = Color.Transparent,
+                Padding = new Padding(0, 5, 0, 5)
+            };
+
+            int y = 5;
+            foreach (var group in _menuGroups)
+            {
+                // Encabezado de Sección / Categoría
+                var lblHeader = new Label
+                {
+                    Text = group.Category,
+                    Font = new Font("Segoe UI", 7.5f, FontStyle.Bold),
+                    ForeColor = Color.FromArgb(130, 255, 255, 255),
+                    Location = new Point(18, y + 4),
+                    AutoSize = true,
+                    BackColor = Color.Transparent
+                };
+                menuPanel.Controls.Add(lblHeader);
+                y += 24;
+
+                // Items de la categoría
+                foreach (var (icon, label) in group.Items)
+                {
+                    menuPanel.Controls.Add(CreateNavItem(icon, label, y));
+                    y += 38;
+                }
+
+                y += 6; // Espacio entre categorías
             }
 
-            // ── Divider logout ─────────────────────────────────────────
-            Controls.Add(new Panel { Location = new Point(16, y + 4), Size = new Size(188, 1), BackColor = Color.FromArgb(50, 255, 255, 255) });
-
-            // ── Logout ─────────────────────────────────────────────────
-            Controls.Add(CreateLogoutItem(y + 16));
-
-            // ── Versión ────────────────────────────────────────────────
-            Controls.Add(new Label { Text = "v1.0.0 · MVP Universitario", Font = new Font("Segoe UI", 7f), ForeColor = Color.FromArgb(60, 255, 255, 255), Location = new Point(16, y + 70), AutoSize = true, BackColor = Color.Transparent });
-
+            Controls.Add(menuPanel);
             ResumeLayout();
         }
 
@@ -102,14 +148,13 @@ namespace GestorInventario.Components
 
             var panel = new Panel
             {
-                Location = new Point(8, y),
-                Size = new Size(204, 40),
+                Location = new Point(10, y),
+                Size = new Size(218, 34),
                 BackColor = isActive ? AppColors.Primary : Color.Transparent,
                 Cursor = Cursors.Hand,
                 Tag = label
             };
 
-            // Redondear si activo
             if (isActive)
             {
                 panel.Paint += (s, e) =>
@@ -122,33 +167,30 @@ namespace GestorInventario.Components
                 };
             }
 
-            // Ícono
             var lblIcon = new Label
             {
                 Text = icon,
-                Font = new Font("Segoe UI Emoji", 13f),
+                Font = new Font("Segoe UI Emoji", 11.5f),
                 ForeColor = Color.White,
-                Location = new Point(10, 8),
-                Size = new Size(28, 26),
+                Location = new Point(8, 5),
+                Size = new Size(24, 22),
                 BackColor = Color.Transparent,
                 TextAlign = ContentAlignment.MiddleCenter
             };
 
-            // Texto
             var lblText = new Label
             {
                 Text = label,
-                Font = isActive ? new Font("Segoe UI", 9.5f, FontStyle.Bold) : new Font("Segoe UI", 9.5f),
-                ForeColor = isActive ? Color.White : Color.FromArgb(200, 255, 255, 255),
-                Location = new Point(44, 10),
-                Size = new Size(150, 22),
+                Font = isActive ? new Font("Segoe UI", 9f, FontStyle.Bold) : new Font("Segoe UI", 9f),
+                ForeColor = isActive ? Color.White : Color.FromArgb(205, 255, 255, 255),
+                Location = new Point(36, 7),
+                Size = new Size(170, 20),
                 BackColor = Color.Transparent
             };
 
             panel.Controls.Add(lblIcon);
             panel.Controls.Add(lblText);
 
-            // Hover
             Action setHover = () => { if (label != _activeItem) panel.BackColor = Color.FromArgb(30, 255, 255, 255); };
             Action clearHover = () => { if (label != _activeItem) panel.BackColor = Color.Transparent; };
             Action onClick = () => { _activeItem = label; BuildSidebar(); NavigateTo?.Invoke(label); };
@@ -168,16 +210,22 @@ namespace GestorInventario.Components
 
         private Panel CreateLogoutItem(int y)
         {
-            var panel = new Panel { Location = new Point(8, y), Size = new Size(204, 40), BackColor = Color.Transparent, Cursor = Cursors.Hand };
+            var panel = new Panel
+            {
+                Location = new Point(10, y),
+                Size = new Size(218, 36),
+                BackColor = Color.Transparent,
+                Cursor = Cursors.Hand
+            };
 
-            var lblIcon = new Label { Text = "🚪", Font = new Font("Segoe UI Emoji", 13f), ForeColor = Color.FromArgb(200, AppColors.Danger), Location = new Point(10, 8), Size = new Size(28, 26), BackColor = Color.Transparent };
-            var lblText = new Label { Text = "Cerrar sesión", Font = new Font("Segoe UI", 9.5f), ForeColor = Color.FromArgb(200, AppColors.Danger), Location = new Point(44, 10), Size = new Size(150, 22), BackColor = Color.Transparent };
+            var lblIcon = new Label { Text = "🚪", Font = new Font("Segoe UI Emoji", 12f), ForeColor = Color.FromArgb(220, AppColors.Danger), Location = new Point(8, 6), Size = new Size(24, 22), BackColor = Color.Transparent };
+            var lblText = new Label { Text = "Cerrar sesión", Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = Color.FromArgb(220, AppColors.Danger), Location = new Point(36, 8), Size = new Size(170, 20), BackColor = Color.Transparent };
 
             panel.Controls.Add(lblIcon);
             panel.Controls.Add(lblText);
 
             Action onClick = () => NavigateTo?.Invoke("Logout");
-            Action setH = () => panel.BackColor = Color.FromArgb(20, 239, 68, 68);
+            Action setH = () => panel.BackColor = Color.FromArgb(30, 239, 68, 68);
             Action clrH = () => panel.BackColor = Color.Transparent;
 
             panel.MouseEnter += (s, e) => setH(); panel.MouseLeave += (s, e) => clrH(); panel.Click += (s, e) => onClick();

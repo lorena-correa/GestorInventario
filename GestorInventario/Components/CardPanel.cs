@@ -27,16 +27,20 @@ namespace GestorInventario.Components
             var g = e.Graphics;
             g.SmoothingMode = SmoothingMode.AntiAlias;
 
-            var rect = new Rectangle(2, 2, Width - 5, Height - 5);
+            var parentColor = Parent?.BackColor ?? AppColors.BackgroundGeneral;
+            using var bgBrush = new SolidBrush(parentColor);
+            g.FillRectangle(bgBrush, ClientRectangle);
+
+            var rect = new Rectangle(2, 2, Width - 6, Height - 6);
 
             // Shadow
             if (_showShadow)
             {
-                for (int i = 4; i >= 1; i--)
+                for (int i = 3; i >= 1; i--)
                 {
                     var sRect = new Rectangle(rect.X - 1, rect.Y + i, rect.Width + 2, rect.Height);
                     using var sPath = UIHelper.RoundedRect(sRect, _radius);
-                    using var sBrush = new SolidBrush(Color.FromArgb(8 * i, 100, 100, 120));
+                    using var sBrush = new SolidBrush(Color.FromArgb(6 * i, 100, 100, 120));
                     g.FillPath(sBrush, sPath);
                 }
             }
@@ -54,6 +58,11 @@ namespace GestorInventario.Components
             base.OnPaint(e);
         }
 
-        protected override void OnPaintBackground(PaintEventArgs e) { }
+        protected override void OnPaintBackground(PaintEventArgs e)
+        {
+            var parentColor = Parent?.BackColor ?? AppColors.BackgroundGeneral;
+            using var bgBrush = new SolidBrush(parentColor);
+            e.Graphics.FillRectangle(bgBrush, ClientRectangle);
+        }
     }
 }

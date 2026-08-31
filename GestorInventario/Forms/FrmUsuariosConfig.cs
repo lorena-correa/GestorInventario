@@ -31,30 +31,69 @@ namespace GestorInventario.Forms
         {
             SuspendLayout();
 
-            var toolbar = new Panel { Location = new Point(24, 24), Size = new Size(1100, 52), BackColor = Color.Transparent };
+            var toolbarCard = new CardPanel
+            {
+                Location = new Point(24, 16),
+                Size = new Size(1140, 72),
+                Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right
+            };
 
-            var lblSearch = new Label { Text = "🔍", Font = new Font("Segoe UI Emoji", 12f), Location = new Point(0, 12), AutoSize = true, BackColor = Color.Transparent };
-            toolbar.Controls.Add(lblSearch);
+            var lblTitulo = new Label
+            {
+                Text = "👥  ADMINISTRACIÓN DE USUARIOS",
+                Font = AppFonts.Heading,
+                ForeColor = AppColors.TextPrimary,
+                Location = new Point(16, 12),
+                AutoSize = true,
+                BackColor = Color.Transparent
+            };
+            toolbarCard.Controls.Add(lblTitulo);
 
-            txtBuscar = new TextBox { Location = new Point(28, 8), Size = new Size(280, 36), Font = AppFonts.Body, BorderStyle = BorderStyle.FixedSingle, PlaceholderText = "Buscar usuario..." };
+            var lblSubtitulo = new Label
+            {
+                Text = "Control de accesos, roles de usuario y cuentas de inicio de sesión",
+                Font = AppFonts.Small,
+                ForeColor = AppColors.TextSecondary,
+                Location = new Point(18, 42),
+                AutoSize = true,
+                BackColor = Color.Transparent
+            };
+            toolbarCard.Controls.Add(lblSubtitulo);
+
+            // Contenedor de acciones alineado a la derecha
+            var actionsPanel = new FlowLayoutPanel
+            {
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                AutoSize = true,
+                Location = new Point(480, 16),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                BackColor = Color.Transparent,
+                Height = 44
+            };
+
+            UIHelper.CreateSearchInput(actionsPanel, out txtBuscar, 0, 0, 220, 38, "Buscar usuario...");
             txtBuscar.TextChanged += (s, e) => LoadData(txtBuscar.Text);
-            toolbar.Controls.Add(txtBuscar);
 
-            var btnNuevo = UIHelper.CreatePrimaryButton("＋  Nuevo Usuario", new Size(170, 40), new Point(320, 6));
+            var btnNuevo = UIHelper.CreatePrimaryButton("＋ NUEVO", new Size(105, 38), new Point(0, 0));
+            btnNuevo.Margin = new Padding(6, 0, 0, 0);
             btnNuevo.Click += (s, e) => OpenForm(null);
-            toolbar.Controls.Add(btnNuevo);
+            actionsPanel.Controls.Add(btnNuevo);
 
-            var btnEditar = UIHelper.CreateSecondaryButton("✏️  Editar", new Size(110, 40), new Point(500, 6));
+            var btnEditar = UIHelper.CreateSecondaryButton("✏️ EDITAR", new Size(95, 38), new Point(0, 0));
+            btnEditar.Margin = new Padding(6, 0, 0, 0);
             btnEditar.Click += (s, e) => { if (_selected == null) { ShowWarn(); return; } OpenForm(_selected); };
-            toolbar.Controls.Add(btnEditar);
+            actionsPanel.Controls.Add(btnEditar);
 
-            var btnEliminar = UIHelper.CreateDangerButton("🗑  Eliminar", new Size(110, 40), new Point(620, 6));
+            var btnEliminar = UIHelper.CreateDangerButton("🗑 BORRAR", new Size(95, 38), new Point(0, 0));
+            btnEliminar.Margin = new Padding(6, 0, 0, 0);
             btnEliminar.Click += (s, e) => { if (_selected == null) { ShowWarn(); return; } DeleteSelected(); };
-            toolbar.Controls.Add(btnEliminar);
+            actionsPanel.Controls.Add(btnEliminar);
 
-            Controls.Add(toolbar);
+            toolbarCard.Controls.Add(actionsPanel);
+            Controls.Add(toolbarCard);
 
-            var card = new CardPanel { Location = new Point(24, 92), Size = new Size(1100, 480) };
+            var card = new CardPanel { Location = new Point(24, 100), Size = new Size(1140, 520), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom };
             dgv = new DataGridView { Dock = DockStyle.Fill };
             UIHelper.StyleDataGridView(dgv);
             dgv.Columns.Add("UserId", "ID");
@@ -142,7 +181,7 @@ namespace GestorInventario.Forms
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // FrmUsuarioDetalle — Crear / Editar usuario
+    // FrmUsuarioDetalle — Crear / Editar usuario (Modal Estándar)
     // ═══════════════════════════════════════════════════════════════
     public class FrmUsuarioDetalle : Form
     {
@@ -157,7 +196,7 @@ namespace GestorInventario.Forms
         {
             _usuario = usuario;
             _isEdit = usuario != null;
-            Size = new Size(520, 460);
+            Size = new Size(540, 480);
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.None;
             BackColor = Color.White;
@@ -167,38 +206,43 @@ namespace GestorInventario.Forms
 
         private void BuildUI()
         {
-            var header = new Panel { Dock = DockStyle.Top, Height = 60, BackColor = AppColors.Primary };
-            var lblTitle = new Label { Text = _isEdit ? "✏️  Editar Usuario" : "➕  Nuevo Usuario", Font = AppFonts.SubHeading, ForeColor = Color.White, Location = new Point(20, 18), AutoSize = true };
-            var btnX = new Label { Text = "✕", Font = new Font("Segoe UI", 16f), ForeColor = Color.White, Cursor = Cursors.Hand, Location = new Point(480, 16), AutoSize = true };
-            btnX.Click += (s, e) => Close();
-            header.Controls.AddRange(new Control[] { lblTitle, btnX });
+            var header = UIHelper.CreateModalHeader(this, _isEdit ? "Editar Usuario" : "Nuevo Usuario", _isEdit ? "✏️" : "👤");
             Controls.Add(header);
 
-            int x = 30, y = 80, w = 440;
+            var panelForm = new Panel
+            {
+                Location = new Point(0, 60),
+                Size = new Size(540, 420),
+                BackColor = Color.White,
+                Padding = new Padding(30, 20, 30, 20)
+            };
 
-            AddField("NOMBRE COMPLETO *", out txtNombre, x, y, w); y += 80;
-            AddField("CORREO ELECTRÓNICO *", out txtEmail, x, y, w); y += 80;
-            AddField(_isEdit ? "NUEVA CONTRASEÑA (dejar vacío para no cambiar)"
-                             : "CONTRASEÑA *",
-                     out txtPassword, x, y, w);
+            int x = 30, y = 15, w = 470, rowH = 72;
+
+            UIHelper.CreateRoundedTextBox(panelForm, "NOMBRE COMPLETO *", out txtNombre, x, y, w);
+            y += rowH;
+
+            UIHelper.CreateRoundedTextBox(panelForm, "CORREO ELECTRÓNICO *", out txtEmail, x, y, w);
+            y += rowH;
+
+            UIHelper.CreateRoundedTextBox(panelForm, _isEdit ? "NUEVA CONTRASEÑA (dejar vacío para mantener)" : "CONTRASEÑA *", out txtPassword, x, y, w);
             txtPassword.UseSystemPasswordChar = true;
-            y += 80;
+            y += rowH;
 
-            var lblRol = new Label { Text = "ROL *", Font = AppFonts.SmallBold, ForeColor = AppColors.TextSecondary, Location = new Point(x, y), AutoSize = true };
-            cboRol = new ComboBox { Location = new Point(x, y + 22), Size = new Size(w, 36), Font = AppFonts.Body, FlatStyle = FlatStyle.Flat, DropDownStyle = ComboBoxStyle.DropDownList };
+            UIHelper.CreateRoundedComboBox(panelForm, "ROL DE ACCESO *", out cboRol, x, y, w);
             cboRol.Items.AddRange(new[] { "Administrador", "Operador", "Consultor" });
             cboRol.SelectedIndex = 1;
-            Controls.Add(lblRol);
-            Controls.Add(cboRol);
-            y += 80;
+            y += rowH + 10;
 
-            var btnGuardar = UIHelper.CreatePrimaryButton("💾  Guardar", new Size(160, 44), new Point(x, y));
+            var btnGuardar = UIHelper.CreatePrimaryButton("💾 Guardar Usuario", new Size(180, 42), new Point(x, y));
             btnGuardar.Click += BtnGuardar_Click;
-            Controls.Add(btnGuardar);
+            panelForm.Controls.Add(btnGuardar);
 
-            var btnCancelar = UIHelper.CreateSecondaryButton("✕  Cancelar", new Size(130, 44), new Point(x + 170, y));
+            var btnCancelar = UIHelper.CreateSecondaryButton("✕ Cancelar", new Size(130, 42), new Point(x + 195, y));
             btnCancelar.Click += (s, e) => Close();
-            Controls.Add(btnCancelar);
+            panelForm.Controls.Add(btnCancelar);
+
+            Controls.Add(panelForm);
         }
 
         private void AddField(string label, out TextBox txt, int x, int y, int w)
@@ -286,26 +330,26 @@ namespace GestorInventario.Forms
             SuspendLayout();
 
             // Botones de tipo de reporte
-            var btnStock = UIHelper.CreatePrimaryButton("📦  Stock Actual", new Size(180, 44), new Point(24, 24));
+            var btnStock = UIHelper.CreatePrimaryButton("📦 Stock Actual", new Size(160, 42), new Point(24, 24));
             btnStock.Click += (s, e) => GenerarReporteStock();
             Controls.Add(btnStock);
 
-            var btnCriticos = UIHelper.CreateDangerButton("⚠️  Productos Críticos", new Size(200, 44), new Point(214, 24));
+            var btnCriticos = UIHelper.CreateDangerButton("⚠️ Productos Críticos", new Size(180, 42), new Point(194, 24));
             btnCriticos.Click += (s, e) => GenerarReporteCriticos();
             Controls.Add(btnCriticos);
 
-            var btnMovimientos = UIHelper.CreateSecondaryButton("🔄  Movimientos del Mes", new Size(210, 44), new Point(424, 24));
+            var btnMovimientos = UIHelper.CreateSecondaryButton("🔄 Movimientos del Mes", new Size(190, 42), new Point(384, 24));
             btnMovimientos.Click += (s, e) => GenerarReporteMovimientos();
             Controls.Add(btnMovimientos);
 
-            var btnExportar = UIHelper.CreateSecondaryButton("📥  Exportar CSV", new Size(160, 44), new Point(644, 24));
+            var btnExportar = UIHelper.CreateSecondaryButton("📥 Exportar CSV", new Size(150, 42), new Point(584, 24));
             btnExportar.Click += (s, e) => ExportarCSV();
             Controls.Add(btnExportar);
 
-            lblTitulo = new Label { Text = "Selecciona un tipo de reporte", Font = AppFonts.SubHeading, ForeColor = AppColors.TextPrimary, Location = new Point(24, 88), AutoSize = true, BackColor = Color.Transparent };
+            lblTitulo = new Label { Text = "Selecciona un tipo de reporte", Font = AppFonts.SubHeading, ForeColor = AppColors.TextPrimary, Location = new Point(24, 84), AutoSize = true, BackColor = Color.Transparent };
             Controls.Add(lblTitulo);
 
-            var tableCard = new CardPanel { Location = new Point(24, 120), Size = new Size(1200, 520), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom };
+            var tableCard = new CardPanel { Location = new Point(24, 116), Size = new Size(1140, 520), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom };
             dgv = new DataGridView { Dock = DockStyle.Fill };
             UIHelper.StyleDataGridView(dgv);
             tableCard.Controls.Add(dgv);
@@ -507,10 +551,10 @@ namespace GestorInventario.Forms
         {
             SuspendLayout();
 
-            var dbCard = new CardPanel { Location = new Point(24, 24), Size = new Size(560, 340) };
+            var dbCard = new CardPanel { Location = new Point(24, 24), Size = new Size(540, 360) };
             var lblTitle = new Label { Text = "⚙️  Configuración de Base de Datos", Font = AppFonts.SubHeading, ForeColor = AppColors.TextPrimary, Location = new Point(20, 16), AutoSize = true, BackColor = Color.Transparent };
             dbCard.Controls.Add(lblTitle);
-            var div = new Panel { Location = new Point(20, 48), Size = new Size(520, 1), BackColor = AppColors.Border };
+            var div = new Panel { Location = new Point(20, 48), Size = new Size(500, 1), BackColor = AppColors.Border };
             dbCard.Controls.Add(div);
 
             int y = 64;
@@ -525,13 +569,13 @@ namespace GestorInventario.Forms
             {
                 var (label, val) = fields[i];
                 var lbl = new Label { Text = label, Font = AppFonts.SmallBold, ForeColor = AppColors.TextSecondary, Location = new Point(20, y), AutoSize = true, BackColor = Color.Transparent };
-                textBoxes[i] = new TextBox { Location = new Point(20, y + 22), Size = new Size(520, 36), Font = AppFonts.Body, BorderStyle = BorderStyle.FixedSingle, Text = val };
+                textBoxes[i] = new TextBox { Location = new Point(20, y + 22), Size = new Size(500, 36), Font = AppFonts.Body, BorderStyle = BorderStyle.FixedSingle, Text = val };
                 dbCard.Controls.Add(lbl);
                 dbCard.Controls.Add(textBoxes[i]);
                 y += 64;
             }
 
-            var btnTest = UIHelper.CreateSecondaryButton("🔌  Probar Conexión", new Size(180, 40), new Point(20, y + 10));
+            var btnTest = UIHelper.CreateSecondaryButton("🔌 Probar Conexión", new Size(170, 42), new Point(20, y + 10));
             btnTest.Click += (s, e) =>
             {
                 if (Config.DatabaseConfig.TestConnection(out string err))
@@ -541,7 +585,7 @@ namespace GestorInventario.Forms
             };
             dbCard.Controls.Add(btnTest);
 
-            var btnGuardar = UIHelper.CreatePrimaryButton("💾  Guardar", new Size(140, 40), new Point(210, y + 10));
+            var btnGuardar = UIHelper.CreatePrimaryButton("💾 Guardar", new Size(130, 42), new Point(200, y + 10));
             btnGuardar.Click += (s, e) =>
             {
                 Config.DatabaseConfig.Host = textBoxes[0].Text;
@@ -556,7 +600,7 @@ namespace GestorInventario.Forms
             Controls.Add(dbCard);
 
             // Info card
-            var infoCard = new CardPanel { Location = new Point(608, 24), Size = new Size(400, 200) };
+            var infoCard = new CardPanel { Location = new Point(588, 24), Size = new Size(540, 360) };
             infoCard.Paint += (s, e) =>
             {
                 var g = e.Graphics;
@@ -574,8 +618,8 @@ namespace GestorInventario.Forms
                     $"Usuario activo: {Config.Session.UserName}",
                     $"Rol: {Config.Session.Role}"
                 };
-                int iy = 60;
-                foreach (var line in info) { g.DrawString(line, bf, bb, new Point(20, iy)); iy += 24; }
+                int iy = 65;
+                foreach (var line in info) { g.DrawString(line, bf, bb, new Point(20, iy)); iy += 28; }
             };
             Controls.Add(infoCard);
             ResumeLayout();

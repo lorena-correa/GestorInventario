@@ -9,7 +9,8 @@ using GestorInventario.Services;
 namespace GestorInventario.Forms
 {
     /// <summary>
-    /// Main shell form: hosts Sidebar + TopBar + dynamic content area.
+    /// Formulario Principal Contenedor (frmPrincipal / FrmMain)
+    /// Aplica navegación moderna embebiendo formularios hijos en panel central sin MDI.
     /// </summary>
     public class FrmMain : Form
     {
@@ -24,16 +25,16 @@ namespace GestorInventario.Forms
             BackColor = AppColors.BackgroundGeneral;
             Font = AppFonts.Body;
             StartPosition = FormStartPosition.CenterScreen;
-            Text = "Gestor de Inventario";
+            Text = "Sistema de Facturación y Control de Inventario — Pascual Bravo";
             FormBorderStyle = FormBorderStyle.Sizable;
             BuildLayout();
-            LoadModule(new FrmDashboard(), "Dashboard", "Inicio");
+            LoadModule(new FrmDashboard(), "Dashboard", "Dashboard");
         }
 
         private void BuildLayout()
         {
             _sidebar = new SidebarControl();
-            _topBar = new TopBarControl { UserName = Session.UserName };
+            _topBar = new TopBarControl { UserName = string.IsNullOrEmpty(Session.UserName) ? "Lorena Correa (Cajera)" : Session.UserName };
 
             _contentPanel = new Panel
             {
@@ -53,18 +54,67 @@ namespace GestorInventario.Forms
         {
             switch (module)
             {
-                case "Inicio": LoadModule(new FrmDashboard(), "Dashboard", "Inicio"); break;
-                case "Productos": LoadModule(new FrmProductos(), "Productos", "Productos"); break;
-                case "Proveedores": LoadModule(new FrmProveedores(), "Proveedores", "Proveedores"); break;
-                case "Entradas": LoadModule(new FrmEntradaInventario(), "Entrada de Inventario", "Entradas"); break;
-                case "Salidas": LoadModule(new FrmSalidaInventario(), "Salida de Inventario", "Salidas"); break;
-                case "Inventario": LoadModule(new FrmInventario(), "Inventario", "Inventario"); break;
-                case "Reportes": LoadModule(new FrmReportes(), "Reportes", "Reportes"); break;
-                case "Alertas": LoadModule(new FrmAlertas(), "Alertas", "Alertas"); break;
-                case "Usuarios": LoadModule(new FrmUsuarios(), "Usuarios", "Usuarios"); break;
-                case "Configuración": LoadModule(new FrmConfiguracion(), "Configuración", "Configuración"); break;
+                // ── TABLAS ──────────────────────────────────────────
+                case "Clientes":
+                    LoadModule(new frmLista_Clientes(), "Administración de Clientes", "Clientes");
+                    break;
+                case "Productos":
+                    LoadModule(new frmlista_productos(), "Administración de Productos", "Productos");
+                    break;
+                case "Categorías":
+                    LoadModule(new frmlista_CategoriaProductos(), "Categorías de Productos", "Categorías");
+                    break;
+                case "Proveedores":
+                    LoadModule(new FrmProveedores(), "Administración de Proveedores", "Proveedores");
+                    break;
+
+                // ── FACTURACIÓN ─────────────────────────────────────
+                case "Facturación":
+                    LoadModule(new frmlistaFacturas(), "Administración de Facturas", "Facturación");
+                    break;
+                case "Informes":
+                    LoadModule(new frmInformes(), "Generador de Informes", "Informes");
+                    break;
+
+                // ── INVENTARIO ──────────────────────────────────────
+                case "Dashboard":
+                    LoadModule(new FrmDashboard(), "Panel de Control", "Dashboard");
+                    break;
+                case "Entradas":
+                    LoadModule(new FrmEntradaInventario(), "Entrada de Inventario", "Entradas");
+                    break;
+                case "Salidas":
+                    LoadModule(new FrmSalidaInventario(), "Salida de Inventario", "Salidas");
+                    break;
+                case "Stock Actual":
+                    LoadModule(new FrmInventario(), "Existencias de Inventario", "Stock Actual");
+                    break;
+                case "Alertas":
+                    LoadModule(new FrmAlertas(), "Alertas de Stock Crítico", "Alertas");
+                    break;
+
+                // ── SEGURIDAD ───────────────────────────────────────
+                case "Empleados":
+                    LoadModule(new frmlista_Empleados(), "Administración de Empleados", "Empleados");
+                    break;
+                case "Roles":
+                    LoadModule(new frmlista_RolEmpleados(), "Roles de Empleados", "Roles");
+                    break;
+                case "Seguridad":
+                    LoadModule(new frmAdminSeguridad(), "Seguridad y Usuarios", "Seguridad");
+                    break;
+
+                // ── AYUDA ───────────────────────────────────────────
+                case "Ayuda Web":
+                    LoadModule(new frmAyuda(), "Centro de Ayuda y Documentación", "Ayuda Web");
+                    break;
+                case "Acerca de":
+                    LoadModule(new frmAcercaDe(), "Acerca del Sistema", "Acerca de");
+                    break;
+
+                // ── CERRAR SESIÓN ───────────────────────────────────
                 case "Logout":
-                    if (MessageBox.Show("¿Desea cerrar sesión?", "Cerrar sesión",
+                    if (MessageBox.Show("¿Desea cerrar la sesión actual?", "Cerrar sesión",
                         MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
                     {
                         Session.Clear();
@@ -91,5 +141,12 @@ namespace GestorInventario.Forms
             _contentPanel.Controls.Add(form);
             form.Show();
         }
+    }
+
+    /// <summary>
+    /// Alias para cumplir con el nombre exacto de la guía universitaria (frmPrincipal)
+    /// </summary>
+    public class frmPrincipal : FrmMain
+    {
     }
 }

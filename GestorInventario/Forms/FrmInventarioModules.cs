@@ -67,17 +67,17 @@ namespace GestorInventario.Forms
             }
 
             // Filter bar
-            var lblFilter = new Label { Text = "Filtrar:", Font = AppFonts.BodyBold, ForeColor = AppColors.TextPrimary, Location = new Point(24, 144), AutoSize = true, BackColor = Color.Transparent };
+            var lblFilter = new Label { Text = "Filtrar por estado:", Font = AppFonts.BodyBold, ForeColor = AppColors.TextPrimary, Location = new Point(24, 144), AutoSize = true, BackColor = Color.Transparent };
             Controls.Add(lblFilter);
 
-            var cbFilter = new ComboBox { Location = new Point(76, 140), Size = new Size(200, 36), Font = AppFonts.Body, FlatStyle = FlatStyle.Flat, DropDownStyle = ComboBoxStyle.DropDownList };
+            var cbFilter = new ComboBox { Location = new Point(160, 140), Size = new Size(180, 36), Font = AppFonts.Body, FlatStyle = FlatStyle.Flat, DropDownStyle = ComboBoxStyle.DropDownList };
             cbFilter.Items.AddRange(new[] { "Todos", "Stock Crítico", "Stock Normal" });
             cbFilter.SelectedIndex = 0;
             cbFilter.SelectedIndexChanged += (s, e) => LoadInventario(cbFilter.SelectedItem?.ToString() ?? "Todos");
             Controls.Add(cbFilter);
 
             // Table
-            var tableCard = new CardPanel { Location = new Point(24, 180), Size = new Size(1200, 500), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom };
+            var tableCard = new CardPanel { Location = new Point(24, 180), Size = new Size(1140, 480), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom };
             dgvInventario = new DataGridView { Dock = DockStyle.Fill };
             UIHelper.StyleDataGridView(dgvInventario);
             dgvInventario.Columns.Add("Codigo", "Código");
@@ -156,37 +156,37 @@ namespace GestorInventario.Forms
         {
             SuspendLayout();
 
-            var filterPanel = new Panel { Location = new Point(24, 24), Size = new Size(1200, 52), BackColor = Color.Transparent };
+            var filterCard = new CardPanel { Location = new Point(24, 16), Size = new Size(1140, 68), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right };
 
-            var lblTipo = new Label { Text = "Tipo:", Font = AppFonts.BodyBold, ForeColor = AppColors.TextPrimary, Location = new Point(0, 12), AutoSize = true, BackColor = Color.Transparent };
-            filterPanel.Controls.Add(lblTipo);
+            var lblTipo = new Label { Text = "Tipo:", Font = AppFonts.BodyBold, ForeColor = AppColors.TextPrimary, Location = new Point(16, 22), AutoSize = true, BackColor = Color.Transparent };
+            filterCard.Controls.Add(lblTipo);
 
-            cboTipo = new ComboBox { Location = new Point(44, 8), Size = new Size(160, 36), Font = AppFonts.Body, FlatStyle = FlatStyle.Flat, DropDownStyle = ComboBoxStyle.DropDownList };
+            cboTipo = new ComboBox { Location = new Point(60, 18), Size = new Size(140, 36), Font = AppFonts.Body, FlatStyle = FlatStyle.Flat, DropDownStyle = ComboBoxStyle.DropDownList };
             cboTipo.Items.AddRange(new[] { "Todos", "Entrada", "Salida" });
             cboTipo.SelectedIndex = 0;
-            filterPanel.Controls.Add(cboTipo);
+            filterCard.Controls.Add(cboTipo);
 
-            var lblDesde = new Label { Text = "Desde:", Font = AppFonts.BodyBold, ForeColor = AppColors.TextPrimary, Location = new Point(218, 12), AutoSize = true, BackColor = Color.Transparent };
-            filterPanel.Controls.Add(lblDesde);
-            dtDesde = new DateTimePicker { Location = new Point(268, 8), Size = new Size(160, 36), Font = AppFonts.Body, Format = DateTimePickerFormat.Short, Value = DateTime.Today.AddDays(-30) };
-            filterPanel.Controls.Add(dtDesde);
+            var lblDesde = new Label { Text = "Desde:", Font = AppFonts.BodyBold, ForeColor = AppColors.TextPrimary, Location = new Point(220, 22), AutoSize = true, BackColor = Color.Transparent };
+            filterCard.Controls.Add(lblDesde);
+            dtDesde = new DateTimePicker { Location = new Point(275, 18), Size = new Size(140, 36), Font = AppFonts.Body, Format = DateTimePickerFormat.Short, Value = DateTime.Today.AddDays(-30) };
+            filterCard.Controls.Add(dtDesde);
 
-            var lblHasta = new Label { Text = "Hasta:", Font = AppFonts.BodyBold, ForeColor = AppColors.TextPrimary, Location = new Point(442, 12), AutoSize = true, BackColor = Color.Transparent };
-            filterPanel.Controls.Add(lblHasta);
-            dtHasta = new DateTimePicker { Location = new Point(494, 8), Size = new Size(160, 36), Font = AppFonts.Body, Format = DateTimePickerFormat.Short, Value = DateTime.Today };
-            filterPanel.Controls.Add(dtHasta);
+            var lblHasta = new Label { Text = "Hasta:", Font = AppFonts.BodyBold, ForeColor = AppColors.TextPrimary, Location = new Point(435, 22), AutoSize = true, BackColor = Color.Transparent };
+            filterCard.Controls.Add(lblHasta);
+            dtHasta = new DateTimePicker { Location = new Point(485, 18), Size = new Size(140, 36), Font = AppFonts.Body, Format = DateTimePickerFormat.Short, Value = DateTime.Today };
+            filterCard.Controls.Add(dtHasta);
 
-            var btnFiltrar = UIHelper.CreatePrimaryButton("🔍  Filtrar", new Size(120, 40), new Point(670, 6));
+            var btnFiltrar = UIHelper.CreatePrimaryButton("🔍 Filtrar", new Size(105, 38), new Point(650, 15));
             btnFiltrar.Click += (s, e) => LoadData();
-            filterPanel.Controls.Add(btnFiltrar);
+            filterCard.Controls.Add(btnFiltrar);
 
-            var btnExportar = UIHelper.CreateSecondaryButton("📋  Exportar", new Size(130, 40), new Point(800, 6));
+            var btnExportar = UIHelper.CreateSecondaryButton("📋 Exportar", new Size(110, 38), new Point(765, 15));
             btnExportar.Click += (s, e) => ExportarCSV();
-            filterPanel.Controls.Add(btnExportar);
+            filterCard.Controls.Add(btnExportar);
 
-            Controls.Add(filterPanel);
+            Controls.Add(filterCard);
 
-            var tableCard = new CardPanel { Location = new Point(24, 92), Size = new Size(1200, 520), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom };
+            var tableCard = new CardPanel { Location = new Point(24, 96), Size = new Size(1140, 520), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom };
             dgvMovimientos = new DataGridView { Dock = DockStyle.Fill };
             UIHelper.StyleDataGridView(dgvMovimientos);
             dgvMovimientos.Columns.Add("Fecha", "Fecha");
@@ -303,7 +303,7 @@ namespace GestorInventario.Forms
             SuspendLayout();
 
             // Banner de advertencia
-            var banner = new Panel { Location = new Point(24, 24), Size = new Size(1200, 72), BackColor = Color.FromArgb(254, 243, 199) };
+            var banner = new Panel { Location = new Point(24, 16), Size = new Size(1140, 72), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right, BackColor = Color.FromArgb(254, 243, 199) };
             banner.Paint += (s, e) =>
             {
                 var g = e.Graphics;
@@ -325,20 +325,20 @@ namespace GestorInventario.Forms
             Controls.Add(banner);
 
             // Botones acción
-            var btnResolver = UIHelper.CreatePrimaryButton("✅  Marcar Resuelta", new Size(180, 40), new Point(24, 108));
+            var btnResolver = UIHelper.CreatePrimaryButton("✅ Marcar Resuelta", new Size(160, 38), new Point(24, 100));
             btnResolver.Click += BtnResolver_Click;
             Controls.Add(btnResolver);
 
-            var btnIgnorar = UIHelper.CreateSecondaryButton("🚫  Ignorar", new Size(130, 40), new Point(214, 108));
+            var btnIgnorar = UIHelper.CreateSecondaryButton("🚫 Ignorar", new Size(110, 38), new Point(194, 100));
             btnIgnorar.Click += BtnIgnorar_Click;
             Controls.Add(btnIgnorar);
 
-            var btnRefresh = UIHelper.CreateSecondaryButton("🔄  Actualizar", new Size(140, 40), new Point(354, 108));
+            var btnRefresh = UIHelper.CreateSecondaryButton("🔄 Actualizar", new Size(120, 38), new Point(314, 100));
             btnRefresh.Click += (s, e) => LoadAlertas();
             Controls.Add(btnRefresh);
 
             // Tabla
-            var tableCard = new CardPanel { Location = new Point(24, 160), Size = new Size(1200, 470), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom };
+            var tableCard = new CardPanel { Location = new Point(24, 150), Size = new Size(1140, 480), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom };
             dgv = new DataGridView { Dock = DockStyle.Fill };
             UIHelper.StyleDataGridView(dgv);
             dgv.Columns.Add("AlertaId", "ID");
