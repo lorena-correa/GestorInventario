@@ -1,10 +1,10 @@
 using System;
-using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 using GestorInventario.Components;
 using GestorInventario.Helpers;
 using GestorInventario.Models;
+using GestorInventario.Services;
 
 namespace GestorInventario.Forms
 {
@@ -18,19 +18,9 @@ namespace GestorInventario.Forms
         private Button btnNuevo = null!;
         private Button btnEditar = null!;
         private Button btnBorrar = null!;
+        private readonly ClienteService _service = new();
 
-        // Lista en memoria para demostración visual inmediata
-        private readonly List<ClienteItem> _listaClientes = new()
-        {
-            new ClienteItem { Id = 1, Nombre = "Carlos Andrés Pérez", Documento = "1020304050", Telefono = "3001234567", Email = "carlos.perez@correo.com", Direccion = "Calle 50 #40-20, Medellín" },
-            new ClienteItem { Id = 2, Nombre = "María Fernanda Gómez", Documento = "1030405060", Telefono = "3109876543", Email = "maria.gomez@correo.com", Direccion = "Carrera 70 #10-15, Medellín" },
-            new ClienteItem { Id = 3, Nombre = "Distribuidora Los Andes S.A.S.", Documento = "900123456-1", Telefono = "6044445566", Email = "ventas@losandes.com", Direccion = "Zona Industrial #12-30, Itagüí" },
-            new ClienteItem { Id = 4, Nombre = "Juan David Morales", Documento = "1017894561", Telefono = "3154567890", Email = "juan.morales@correo.com", Direccion = "Circular 4ta #73-10, Laureles" },
-            new ClienteItem { Id = 5, Nombre = "Tecnología Global S.A.", Documento = "890123987-4", Telefono = "6045558899", Email = "contacto@tecglobal.com", Direccion = "Av. Las Vegas #32-10, Envigado" },
-            new ClienteItem { Id = 6, Nombre = "Laura Patricia Restrepo", Documento = "1035678912", Telefono = "3206549871", Email = "laura.restrepo@correo.com", Direccion = "Calle 10 #43E-12, Poblado" }
-        };
-
-        private ClienteItem? _clienteSeleccionado;
+        private Cliente? _clienteSeleccionado;
 
         public frmLista_Clientes()
         {
@@ -48,43 +38,45 @@ namespace GestorInventario.Forms
             var toolbarCard = new CardPanel
             {
                 Location = new Point(20, 16),
-                Size = new Size(1140, 72),
-                Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right
+                Size = new Size(1140, 64),
+                Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right,
+                Padding = new Padding(0, 13, 20, 13)
             };
 
-            var lblTitulo = new Label
+            var lblIcono = new Label
             {
-                Text = "👥  ADMINISTRACIÓN DE CLIENTES",
-                Font = AppFonts.Heading,
-                ForeColor = AppColors.TextPrimary,
-                Location = new Point(16, 12),
-                AutoSize = true,
+                Text = "👥",
+                Font = new Font("Segoe UI Emoji", 16f),
+                Location = new Point(20, 14),
+                Size = new Size(36, 36),
+                TextAlign = ContentAlignment.MiddleCenter,
                 BackColor = Color.Transparent
             };
-            toolbarCard.Controls.Add(lblTitulo);
+            toolbarCard.Controls.Add(lblIcono);
 
             var lblSubtitulo = new Label
             {
                 Text = "Consulte, agregue, modifique o elimine clientes registrados en el sistema",
                 Font = AppFonts.Small,
                 ForeColor = AppColors.TextSecondary,
-                Location = new Point(18, 42),
-                AutoSize = true,
+                Location = new Point(64, 24),
+                Size = new Size(400, 18),
+                AutoEllipsis = true,
                 BackColor = Color.Transparent
             };
             toolbarCard.Controls.Add(lblSubtitulo);
 
-            // Contenedor de acciones alineado a la derecha sin superposiciones
+            // Contenedor de acciones alineado a la derecha (Dock, no Anchor con
+            // coordenada fija: así nunca se descuadra al redimensionar la tarjeta)
             var actionsPanel = new FlowLayoutPanel
             {
                 FlowDirection = FlowDirection.LeftToRight,
                 WrapContents = false,
                 AutoSize = true,
-                Location = new Point(480, 16),
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                BackColor = Color.Transparent,
-                Height = 44
+                Dock = DockStyle.Right,
+                BackColor = Color.Transparent
             };
+            UIHelper.BindFillWidthUntil(this, lblSubtitulo, actionsPanel, 16);
 
             UIHelper.CreateSearchInput(actionsPanel, out txtBuscar, 0, 0, 220, 38, "Buscar cliente...");
             txtBuscar.TextChanged += (s, e) => CargarDatos(txtBuscar.Text);
@@ -94,13 +86,13 @@ namespace GestorInventario.Forms
             btnNuevo.Click += (s, e) => AbrirFormularioCliente(null);
             actionsPanel.Controls.Add(btnNuevo);
 
-            btnEditar = UIHelper.CreateSecondaryButton("✏️ EDITAR", new Size(95, 38), new Point(0, 0));
+            btnEditar = UIHelper.CreateEditButton("✏️ EDITAR", new Size(95, 38), new Point(0, 0));
             btnEditar.Margin = new Padding(6, 0, 0, 0);
             btnEditar.Click += (s, e) =>
             {
                 if (_clienteSeleccionado == null)
                 {
-                    MessageBox.Show("Por favor seleccione un cliente de la lista para editar.", "Selección Requerida", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    ModernMessageBox.ShowWarning("Por favor seleccione un cliente de la lista para editar.", "Selección Requerida");
                     return;
                 }
                 AbrirFormularioCliente(_clienteSeleccionado);
@@ -113,15 +105,22 @@ namespace GestorInventario.Forms
             {
                 if (_clienteSeleccionado == null)
                 {
-                    MessageBox.Show("Por favor seleccione un cliente de la lista para eliminar.", "Selección Requerida", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    ModernMessageBox.ShowWarning("Por favor seleccione un cliente de la lista para eliminar.", "Selección Requerida");
                     return;
                 }
-                if (MessageBox.Show($"¿Desea eliminar al cliente {_clienteSeleccionado.Nombre}?", "Confirmar Eliminación", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+                if (ModernMessageBox.ShowConfirm($"¿Desea eliminar al cliente {_clienteSeleccionado.Nombre}?", "Confirmar Eliminación", "Eliminar") == DialogResult.Yes)
                 {
-                    _listaClientes.Remove(_clienteSeleccionado);
-                    _clienteSeleccionado = null;
-                    CargarDatos(txtBuscar.Text);
-                    MessageBox.Show("Cliente eliminado con éxito.", "Éxito", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    try
+                    {
+                        _service.Eliminar(_clienteSeleccionado.Id);
+                        _clienteSeleccionado = null;
+                        CargarDatos(txtBuscar.Text);
+                        ModernMessageBox.ShowSuccess("Cliente eliminado con éxito.");
+                    }
+                    catch (Exception ex)
+                    {
+                        ModernMessageBox.ShowError(ex.Message, "Error al eliminar");
+                    }
                 }
             };
             actionsPanel.Controls.Add(btnBorrar);
@@ -132,7 +131,7 @@ namespace GestorInventario.Forms
             // Contenedor DataGridView
             var cardGrid = new CardPanel
             {
-                Location = new Point(20, 100),
+                Location = new Point(20, 92),
                 Size = new Size(1140, 520),
                 Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom
             };
@@ -157,7 +156,7 @@ namespace GestorInventario.Forms
             dgvClientes.SelectionChanged += (s, e) =>
             {
                 if (dgvClientes.SelectedRows.Count > 0)
-                    _clienteSeleccionado = dgvClientes.SelectedRows[0].Tag as ClienteItem;
+                    _clienteSeleccionado = dgvClientes.SelectedRows[0].Tag as Cliente;
             };
 
             dgvClientes.CellDoubleClick += (s, e) =>
@@ -167,6 +166,11 @@ namespace GestorInventario.Forms
             };
 
             cardGrid.Controls.Add(dgvClientes);
+            UIHelper.BindEmptyState(dgvClientes, "No hay clientes registrados todavía.");
+
+            UIHelper.BindFillWidth(this, toolbarCard, 20);
+            UIHelper.BindFillWidth(this, cardGrid, 20);
+            UIHelper.BindFillHeight(this, cardGrid, 24);
             Controls.Add(cardGrid);
 
             ResumeLayout();
@@ -174,40 +178,27 @@ namespace GestorInventario.Forms
 
         private void CargarDatos(string filtro = "")
         {
-            dgvClientes.Rows.Clear();
-            foreach (var c in _listaClientes)
+            try
             {
-                if (!string.IsNullOrEmpty(filtro) &&
-                    !c.Nombre.Contains(filtro, StringComparison.OrdinalIgnoreCase) &&
-                    !c.Documento.Contains(filtro, StringComparison.OrdinalIgnoreCase) &&
-                    !c.Email.Contains(filtro, StringComparison.OrdinalIgnoreCase))
-                    continue;
-
-                int rowIndex = dgvClientes.Rows.Add(c.Id, c.Nombre, c.Documento, c.Telefono, c.Email, c.Direccion, "Activo");
-                dgvClientes.Rows[rowIndex].Tag = c;
+                dgvClientes.Rows.Clear();
+                var clientes = string.IsNullOrEmpty(filtro) ? _service.ObtenerTodos() : _service.Buscar(filtro);
+                foreach (var c in clientes)
+                {
+                    int rowIndex = dgvClientes.Rows.Add(c.Id, c.Nombre, c.Documento, c.Telefono, c.Email, c.Direccion,
+                        c.Activo ? "Activo" : "Inactivo");
+                    dgvClientes.Rows[rowIndex].Tag = c;
+                }
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.ShowError($"Error al cargar clientes: {ex.Message}");
             }
         }
 
-        private void AbrirFormularioCliente(ClienteItem? cliente)
+        private void AbrirFormularioCliente(Cliente? cliente)
         {
             var form = new frmClientes(cliente);
-            form.ClienteGuardado += (nuevoCliente) =>
-            {
-                if (cliente == null)
-                {
-                    nuevoCliente.Id = _listaClientes.Count + 1;
-                    _listaClientes.Add(nuevoCliente);
-                }
-                else
-                {
-                    cliente.Nombre = nuevoCliente.Nombre;
-                    cliente.Documento = nuevoCliente.Documento;
-                    cliente.Telefono = nuevoCliente.Telefono;
-                    cliente.Email = nuevoCliente.Email;
-                    cliente.Direccion = nuevoCliente.Direccion;
-                }
-                CargarDatos(txtBuscar.Text);
-            };
+            form.ClienteGuardado += () => CargarDatos(txtBuscar.Text);
             form.ShowDialog(this);
         }
     }
@@ -217,9 +208,10 @@ namespace GestorInventario.Forms
     // =========================================================================
     public class frmClientes : Form
     {
-        public event Action<ClienteItem>? ClienteGuardado;
-        private readonly ClienteItem? _cliente;
+        public event Action? ClienteGuardado;
+        private readonly Cliente? _cliente;
         private readonly bool _esEdicion;
+        private readonly ClienteService _service = new();
 
         // Controles con nomenclatura estándar de la guía
         private TextBox txtNombreCliente = null!;
@@ -231,7 +223,7 @@ namespace GestorInventario.Forms
         private Button btnSalir = null!;
         private ErrorProvider errValidador = null!;
 
-        public frmClientes(ClienteItem? cliente = null)
+        public frmClientes(Cliente? cliente = null)
         {
             _cliente = cliente;
             _esEdicion = cliente != null;
@@ -341,34 +333,28 @@ namespace GestorInventario.Forms
 
             if (hayErrores)
             {
-                MessageBox.Show("Por favor verifique los campos marcados con error antes de continuar.",
-                    "Validación de Campos", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.ShowWarning("Por favor verifique los campos marcados con error antes de continuar.", "Validación de Campos");
                 return;
             }
 
-            var item = new ClienteItem
+            var item = _esEdicion ? _cliente! : new Cliente();
+            item.Nombre = txtNombreCliente.Text.Trim();
+            item.Documento = txtDocumento.Text.Trim();
+            item.Direccion = txtDireccion.Text.Trim();
+            item.Telefono = txtTelefono.Text.Trim();
+            item.Email = txtEmail.Text.Trim();
+
+            try
             {
-                Nombre = txtNombreCliente.Text.Trim(),
-                Documento = txtDocumento.Text.Trim(),
-                Direccion = txtDireccion.Text.Trim(),
-                Telefono = txtTelefono.Text.Trim(),
-                Email = txtEmail.Text.Trim()
-            };
-
-            ClienteGuardado?.Invoke(item);
-            MessageBox.Show("¡Registro de cliente procesado exitosamente!", "Operación Exitosa",
-                MessageBoxButtons.OK, MessageBoxIcon.Information);
-            Close();
+                _service.Guardar(item);
+                ModernMessageBox.ShowSuccess("¡Registro de cliente procesado exitosamente!", "Operación Exitosa");
+                ClienteGuardado?.Invoke();
+                Close();
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.ShowError(ex.Message, "Error al guardar");
+            }
         }
-    }
-
-    public class ClienteItem
-    {
-        public int Id { get; set; }
-        public string Nombre { get; set; } = string.Empty;
-        public string Documento { get; set; } = string.Empty;
-        public string Telefono { get; set; } = string.Empty;
-        public string Email { get; set; } = string.Empty;
-        public string Direccion { get; set; } = string.Empty;
     }
 }

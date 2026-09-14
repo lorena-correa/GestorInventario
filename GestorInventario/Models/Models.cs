@@ -52,6 +52,44 @@ namespace GestorInventario.Models
         public DateTime CreadoEn { get; set; }
     }
 
+    public class Categoria
+    {
+        public int Id { get; set; }
+        public string Nombre { get; set; } = string.Empty;
+        public string Descripcion { get; set; } = string.Empty;
+        public int TotalProductos { get; set; }
+        public bool Activo { get; set; } = true;
+        public DateTime CreadoEn { get; set; }
+    }
+
+    public class Cliente
+    {
+        public int Id { get; set; }
+        public string Nombre { get; set; } = string.Empty;
+        public string Documento { get; set; } = string.Empty;
+        public string Telefono { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string Direccion { get; set; } = string.Empty;
+        public bool Activo { get; set; } = true;
+        public DateTime CreadoEn { get; set; }
+    }
+
+    public class Empleado
+    {
+        public int Id { get; set; }
+        public string Nombre { get; set; } = string.Empty;
+        public string Documento { get; set; } = string.Empty;
+        public string Rol { get; set; } = string.Empty;
+        public string Telefono { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string Direccion { get; set; } = string.Empty;
+        public DateTime FechaIngreso { get; set; }
+        public DateTime? FechaRetiro { get; set; }
+        public string DatosAdicionales { get; set; } = string.Empty;
+        public bool Activo { get; set; } = true;
+        public DateTime CreadoEn { get; set; }
+    }
+
     public class TipoMovimiento
     {
         public int Id { get; set; }

@@ -1,23 +1,25 @@
-﻿using Npgsql;
+﻿using System;
+using Npgsql;
 
 namespace GestorInventario.Config
 {
     /// <summary>
-    /// Configuración y gestión de la conexión a PostgreSQL.
+    /// Configuración y gestión de la conexión a PostgreSQL en Neon.
     /// Patrón: Singleton para la configuración, Factory para las conexiones.
     /// </summary>
     public static class DatabaseConfig
     {
-        // ── Parámetros de conexión ──────────────────────────────
-        public static string Host { get; set; } = "localhost";
+        // ── Parámetros de conexión a la nube (Neon) ───────────────
+        public static string Host { get; set; } = "ep-divine-frog-a52s9zlq-pooler.us-east-2.aws.neon.tech";
         public static int Port { get; set; } = 5432;
-        public static string Database { get; set; } = "gestor_inventario";
-        public static string Username { get; set; } = "postgres";
-        public static string Password { get; set; } = "1234";
+        public static string Database { get; set; } = "neondb";
+        public static string Username { get; set; } = "neondb_owner";
+        public static string Password { get; set; } = "npg_SeH2o3cgxiBT";
 
         public static string ConnectionString =>
             $"Host={Host};Port={Port};Database={Database};" +
             $"Username={Username};Password={Password};" +
+            $"SSL Mode=Require;Trust Server Certificate=true;" +
             $"Pooling=true;Minimum Pool Size=1;Maximum Pool Size=10;";
 
         // ── Factory: crear conexión abierta ────────────────────

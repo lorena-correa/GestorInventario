@@ -34,43 +34,45 @@ namespace GestorInventario.Forms
             var toolbarCard = new CardPanel
             {
                 Location = new Point(24, 16),
-                Size = new Size(1140, 72),
-                Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right
+                Size = new Size(1140, 64),
+                Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right,
+                Padding = new Padding(0, 13, 20, 13)
             };
 
-            var lblTitulo = new Label
+            var lblIcono = new Label
             {
-                Text = "👥  ADMINISTRACIÓN DE USUARIOS",
-                Font = AppFonts.Heading,
-                ForeColor = AppColors.TextPrimary,
-                Location = new Point(16, 12),
-                AutoSize = true,
+                Text = "👥",
+                Font = new Font("Segoe UI Emoji", 16f),
+                Location = new Point(20, 14),
+                Size = new Size(36, 36),
+                TextAlign = ContentAlignment.MiddleCenter,
                 BackColor = Color.Transparent
             };
-            toolbarCard.Controls.Add(lblTitulo);
+            toolbarCard.Controls.Add(lblIcono);
 
             var lblSubtitulo = new Label
             {
                 Text = "Control de accesos, roles de usuario y cuentas de inicio de sesión",
                 Font = AppFonts.Small,
                 ForeColor = AppColors.TextSecondary,
-                Location = new Point(18, 42),
-                AutoSize = true,
+                Location = new Point(64, 24),
+                Size = new Size(400, 18),
+                AutoEllipsis = true,
                 BackColor = Color.Transparent
             };
             toolbarCard.Controls.Add(lblSubtitulo);
 
-            // Contenedor de acciones alineado a la derecha
+            // Contenedor de acciones alineado a la derecha (Dock, no Anchor con
+            // coordenada fija: así nunca se descuadra al redimensionar la tarjeta)
             var actionsPanel = new FlowLayoutPanel
             {
                 FlowDirection = FlowDirection.LeftToRight,
                 WrapContents = false,
                 AutoSize = true,
-                Location = new Point(480, 16),
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                BackColor = Color.Transparent,
-                Height = 44
+                Dock = DockStyle.Right,
+                BackColor = Color.Transparent
             };
+            UIHelper.BindFillWidthUntil(this, lblSubtitulo, actionsPanel, 16);
 
             UIHelper.CreateSearchInput(actionsPanel, out txtBuscar, 0, 0, 220, 38, "Buscar usuario...");
             txtBuscar.TextChanged += (s, e) => LoadData(txtBuscar.Text);
@@ -80,7 +82,7 @@ namespace GestorInventario.Forms
             btnNuevo.Click += (s, e) => OpenForm(null);
             actionsPanel.Controls.Add(btnNuevo);
 
-            var btnEditar = UIHelper.CreateSecondaryButton("✏️ EDITAR", new Size(95, 38), new Point(0, 0));
+            var btnEditar = UIHelper.CreateEditButton("✏️ EDITAR", new Size(95, 38), new Point(0, 0));
             btnEditar.Margin = new Padding(6, 0, 0, 0);
             btnEditar.Click += (s, e) => { if (_selected == null) { ShowWarn(); return; } OpenForm(_selected); };
             actionsPanel.Controls.Add(btnEditar);
@@ -93,7 +95,7 @@ namespace GestorInventario.Forms
             toolbarCard.Controls.Add(actionsPanel);
             Controls.Add(toolbarCard);
 
-            var card = new CardPanel { Location = new Point(24, 100), Size = new Size(1140, 520), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom };
+            var card = new CardPanel { Location = new Point(24, 92), Size = new Size(1140, 520), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom };
             dgv = new DataGridView { Dock = DockStyle.Fill };
             UIHelper.StyleDataGridView(dgv);
             dgv.Columns.Add("UserId", "ID");
@@ -111,7 +113,13 @@ namespace GestorInventario.Forms
             dgv.CellDoubleClick += (s, e) => { if (_selected != null) OpenForm(_selected); };
 
             card.Controls.Add(dgv);
+            UIHelper.BindEmptyState(dgv, "No hay usuarios registrados todavía.");
             Controls.Add(card);
+
+            UIHelper.BindFillWidth(this, toolbarCard, 24);
+            UIHelper.BindFillWidth(this, card, 24);
+            UIHelper.BindFillHeight(this, card, 24);
+
             ResumeLayout();
         }
 
@@ -136,8 +144,7 @@ namespace GestorInventario.Forms
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error al cargar usuarios: {ex.Message}",
-                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.ShowError($"Error al cargar usuarios: {ex.Message}");
             }
         }
 
@@ -152,32 +159,27 @@ namespace GestorInventario.Forms
         {
             if (_selected!.Id == Config.Session.UserId)
             {
-                MessageBox.Show("No puedes eliminar tu propio usuario.",
-                    "Operación no permitida", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.ShowWarning("No puedes eliminar tu propio usuario.", "Operación no permitida");
                 return;
             }
-            if (MessageBox.Show($"¿Eliminar usuario \"{_selected.Nombre}\"?",
-                "Confirmar", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
+            if (ModernMessageBox.ShowConfirm($"¿Eliminar usuario \"{_selected.Nombre}\"?", "Confirmar", "Eliminar") == DialogResult.Yes)
             {
                 try
                 {
                     _service.Eliminar(_selected.Id);
                     _selected = null;
                     LoadData();
-                    MessageBox.Show("Usuario eliminado.", "Éxito",
-                        MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    ModernMessageBox.ShowSuccess("Usuario eliminado.");
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show(ex.Message, "Error",
-                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    ModernMessageBox.ShowError(ex.Message);
                 }
             }
         }
 
         private void ShowWarn() =>
-            MessageBox.Show("Selecciona un usuario de la lista.",
-                "Selección requerida", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            ModernMessageBox.ShowInfo("Selecciona un usuario de la lista.", "Selección requerida");
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -245,14 +247,6 @@ namespace GestorInventario.Forms
             Controls.Add(panelForm);
         }
 
-        private void AddField(string label, out TextBox txt, int x, int y, int w)
-        {
-            var lbl = new Label { Text = label, Font = AppFonts.SmallBold, ForeColor = AppColors.TextSecondary, Location = new Point(x, y), AutoSize = true };
-            txt = new TextBox { Location = new Point(x, y + 22), Size = new Size(w, 36), Font = AppFonts.Body, BorderStyle = BorderStyle.FixedSingle };
-            Controls.Add(lbl);
-            Controls.Add(txt);
-        }
-
         private void FillData()
         {
             txtNombre.Text = _usuario!.Nombre;
@@ -266,20 +260,17 @@ namespace GestorInventario.Forms
             if (string.IsNullOrWhiteSpace(txtNombre.Text) ||
                 string.IsNullOrWhiteSpace(txtEmail.Text))
             {
-                MessageBox.Show("Nombre y correo son obligatorios.",
-                    "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.ShowWarning("Nombre y correo son obligatorios.", "Validación");
                 return;
             }
             if (!txtEmail.Text.Contains('@'))
             {
-                MessageBox.Show("El correo no es válido.",
-                    "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.ShowWarning("El correo no es válido.", "Validación");
                 return;
             }
             if (!_isEdit && string.IsNullOrWhiteSpace(txtPassword.Text))
             {
-                MessageBox.Show("La contraseña es obligatoria para nuevos usuarios.",
-                    "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.ShowWarning("La contraseña es obligatoria para nuevos usuarios.", "Validación");
                 return;
             }
 
@@ -295,15 +286,13 @@ namespace GestorInventario.Forms
             try
             {
                 _service.Guardar(u);
-                MessageBox.Show("Usuario guardado correctamente.", "Éxito",
-                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ModernMessageBox.ShowSuccess("Usuario guardado correctamente.");
                 Saved?.Invoke();
                 Close();
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "Error al guardar",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.ShowError(ex.Message, "Error al guardar");
             }
         }
     }
@@ -353,7 +342,11 @@ namespace GestorInventario.Forms
             dgv = new DataGridView { Dock = DockStyle.Fill };
             UIHelper.StyleDataGridView(dgv);
             tableCard.Controls.Add(dgv);
+            UIHelper.BindEmptyState(dgv, "No hay datos para este reporte.", "📊");
             Controls.Add(tableCard);
+
+            UIHelper.BindFillWidth(this, tableCard, 24);
+            UIHelper.BindFillHeight(this, tableCard, 24);
 
             GenerarReporteStock();
             ResumeLayout();
@@ -399,8 +392,7 @@ namespace GestorInventario.Forms
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error al generar reporte: {ex.Message}",
-                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.ShowError($"Error al generar reporte: {ex.Message}");
             }
         }
 
@@ -436,8 +428,7 @@ namespace GestorInventario.Forms
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error al generar reporte: {ex.Message}",
-                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.ShowError($"Error al generar reporte: {ex.Message}");
             }
         }
 
@@ -482,8 +473,7 @@ namespace GestorInventario.Forms
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error al generar reporte: {ex.Message}",
-                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.ShowError($"Error al generar reporte: {ex.Message}");
             }
         }
 
@@ -491,8 +481,7 @@ namespace GestorInventario.Forms
         {
             if (dgv.Rows.Count == 0)
             {
-                MessageBox.Show("No hay datos para exportar.", "Sin datos",
-                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ModernMessageBox.ShowInfo("No hay datos para exportar.", "Sin datos");
                 return;
             }
             try
@@ -524,13 +513,11 @@ namespace GestorInventario.Forms
 
                 System.IO.File.WriteAllText(sfd.FileName, sb.ToString(),
                     System.Text.Encoding.UTF8);
-                MessageBox.Show("Reporte exportado correctamente.", "Éxito",
-                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ModernMessageBox.ShowSuccess("Reporte exportado correctamente.");
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error al exportar: {ex.Message}",
-                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.ShowError($"Error al exportar: {ex.Message}");
             }
         }
     }
@@ -568,10 +555,8 @@ namespace GestorInventario.Forms
             for (int i = 0; i < fields.Length; i++)
             {
                 var (label, val) = fields[i];
-                var lbl = new Label { Text = label, Font = AppFonts.SmallBold, ForeColor = AppColors.TextSecondary, Location = new Point(20, y), AutoSize = true, BackColor = Color.Transparent };
-                textBoxes[i] = new TextBox { Location = new Point(20, y + 22), Size = new Size(500, 36), Font = AppFonts.Body, BorderStyle = BorderStyle.FixedSingle, Text = val };
-                dbCard.Controls.Add(lbl);
-                dbCard.Controls.Add(textBoxes[i]);
+                UIHelper.CreateRoundedTextBox(dbCard, label, out textBoxes[i], 20, y, 500, 36);
+                textBoxes[i].Text = val;
                 y += 64;
             }
 
@@ -579,9 +564,9 @@ namespace GestorInventario.Forms
             btnTest.Click += (s, e) =>
             {
                 if (Config.DatabaseConfig.TestConnection(out string err))
-                    MessageBox.Show("✅ Conexión exitosa.", "Conexión", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    ModernMessageBox.ShowSuccess("Conexión exitosa.", "Conexión");
                 else
-                    MessageBox.Show($"❌ {err}", "Error de conexión", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    ModernMessageBox.ShowError(err, "Error de conexión");
             };
             dbCard.Controls.Add(btnTest);
 
@@ -593,8 +578,7 @@ namespace GestorInventario.Forms
                 Config.DatabaseConfig.Port = port;
                 Config.DatabaseConfig.Database = textBoxes[2].Text;
                 Config.DatabaseConfig.Username = textBoxes[3].Text;
-                MessageBox.Show("Configuración guardada.", "Éxito",
-                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ModernMessageBox.ShowSuccess("Configuración guardada.");
             };
             dbCard.Controls.Add(btnGuardar);
             Controls.Add(dbCard);

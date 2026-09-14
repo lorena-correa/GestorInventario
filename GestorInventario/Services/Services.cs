@@ -124,6 +124,108 @@ namespace GestorInventario.Services
     }
 
 
+    /// Category service — connect to PostgreSQL via CategoriaRepository.
+    public class CategoriaService
+    {
+        private readonly CategoriaRepository _repo = new();
+
+        public List<Categoria> ObtenerTodos()
+        {
+            try { return _repo.GetAll(); }
+            catch (Exception ex) { throw new Exception($"Error al obtener categorías: {ex.Message}"); }
+        }
+
+        public List<Categoria> Buscar(string termino)
+        {
+            try { return _repo.Search(termino); }
+            catch (Exception ex) { throw new Exception($"Error al buscar categorías: {ex.Message}"); }
+        }
+
+        public bool Guardar(Categoria c)
+        {
+            try
+            {
+                if (c.Id == 0) return _repo.Create(c);
+                else return _repo.Update(c);
+            }
+            catch (Exception ex) { throw new Exception(ex.Message); }
+        }
+
+        public bool Eliminar(int id)
+        {
+            try { return _repo.Delete(id); }
+            catch (Exception ex) { throw new Exception($"Error al eliminar categoría: {ex.Message}"); }
+        }
+    }
+
+    /// Client service — connect to PostgreSQL via ClienteRepository.
+    public class ClienteService
+    {
+        private readonly ClienteRepository _repo = new();
+
+        public List<Cliente> ObtenerTodos()
+        {
+            try { return _repo.GetAll(); }
+            catch (Exception ex) { throw new Exception($"Error al obtener clientes: {ex.Message}"); }
+        }
+
+        public List<Cliente> Buscar(string termino)
+        {
+            try { return _repo.Search(termino); }
+            catch (Exception ex) { throw new Exception($"Error al buscar clientes: {ex.Message}"); }
+        }
+
+        public bool Guardar(Cliente c)
+        {
+            try
+            {
+                if (c.Id == 0) return _repo.Create(c);
+                else return _repo.Update(c);
+            }
+            catch (Exception ex) { throw new Exception(ex.Message); }
+        }
+
+        public bool Eliminar(int id)
+        {
+            try { return _repo.Delete(id); }
+            catch (Exception ex) { throw new Exception($"Error al eliminar cliente: {ex.Message}"); }
+        }
+    }
+
+    /// Employee service — connect to PostgreSQL via EmpleadoRepository.
+    public class EmpleadoService
+    {
+        private readonly EmpleadoRepository _repo = new();
+
+        public List<Empleado> ObtenerTodos()
+        {
+            try { return _repo.GetAll(); }
+            catch (Exception ex) { throw new Exception($"Error al obtener empleados: {ex.Message}"); }
+        }
+
+        public List<Empleado> Buscar(string termino)
+        {
+            try { return _repo.Search(termino); }
+            catch (Exception ex) { throw new Exception($"Error al buscar empleados: {ex.Message}"); }
+        }
+
+        public bool Guardar(Empleado e)
+        {
+            try
+            {
+                if (e.Id == 0) return _repo.Create(e);
+                else return _repo.Update(e);
+            }
+            catch (Exception ex) { throw new Exception(ex.Message); }
+        }
+
+        public bool Eliminar(int id)
+        {
+            try { return _repo.Delete(id); }
+            catch (Exception ex) { throw new Exception($"Error al eliminar empleado: {ex.Message}"); }
+        }
+    }
+
     /// Inventory movement service.
     public class MovimientoService
     {
@@ -256,6 +358,12 @@ namespace GestorInventario.Services
         {
             try { return _repo.GetAll(); }
             catch (Exception ex) { throw new Exception($"Error al obtener usuarios: {ex.Message}"); }
+        }
+
+        public Usuario? ObtenerPorEmail(string email)
+        {
+            try { return _repo.GetByEmail(email); }
+            catch (Exception ex) { throw new Exception($"Error al buscar usuario: {ex.Message}"); }
         }
 
         public bool Guardar(Usuario u)

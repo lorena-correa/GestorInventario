@@ -49,10 +49,10 @@ namespace GestorInventario.Forms
             {
                 if (string.IsNullOrWhiteSpace(txtCorreo.Text))
                 {
-                    MessageBox.Show("Ingresa tu correo electrónico.", "Campo requerido", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    ModernMessageBox.ShowWarning("Ingresa tu correo electrónico.", "Campo requerido");
                     return;
                 }
-                MessageBox.Show($"Se han enviado instrucciones a:\n{txtCorreo.Text}", "Correo enviado", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ModernMessageBox.ShowSuccess($"Se han enviado instrucciones a:\n{txtCorreo.Text}", "Correo enviado");
                 Close();
             };
             Controls.Add(btnEnviar);

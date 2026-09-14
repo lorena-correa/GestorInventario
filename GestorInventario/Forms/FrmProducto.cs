@@ -172,8 +172,7 @@ namespace GestorInventario.Forms
 
             if (hayErrores)
             {
-                MessageBox.Show("Por favor complete los campos obligatorios indicados con error.",
-                    "Validación con ErrorProvider", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.ShowWarning("Por favor complete los campos obligatorios indicados con error.", "Validación");
                 return;
             }
 
@@ -198,8 +197,7 @@ namespace GestorInventario.Forms
                 // Fallback si BD no conectada
             }
 
-            MessageBox.Show("¡Producto actualizado y guardado correctamente!",
-                "Operación Exitosa", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            ModernMessageBox.ShowSuccess("¡Producto actualizado y guardado correctamente!", "Operación Exitosa");
             Saved?.Invoke();
             Close();
         }

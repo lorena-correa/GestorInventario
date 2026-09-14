@@ -15,6 +15,10 @@ namespace GestorInventario.Forms
         private readonly DashboardService _dashService = new();
         private readonly MovimientoService _movService = new();
 
+        private readonly List<Panel> _metricCards = new();
+        private Label _lblRecent = null!, _lblEstado = null!;
+        private CardPanel _tableCard = null!, _alertCard = null!;
+
         public FrmDashboard()
         {
             FormBorderStyle = FormBorderStyle.None;
@@ -32,8 +36,7 @@ namespace GestorInventario.Forms
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error al cargar dashboard: {ex.Message}",
-                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.ShowError($"Error al cargar dashboard: {ex.Message}");
                 stats = new DashboardStats();
             }
             SuspendLayout();
@@ -50,24 +53,24 @@ namespace GestorInventario.Forms
                 ("🔄", "Movimientos Hoy",    stats.MovimientosHoy.ToString(),      AppColors.Success,  "entradas y salidas"),
                 ("🔔", "Alertas Activas",    stats.AlertasActivas.ToString(),      AppColors.Warning,  "pendientes"),
                 ("🚚", "Proveedores",        stats.TotalProveedores.ToString(),    AppColors.Info,     "registrados"),
-                ("💰", "Valor Inventario",   $"${stats.ValorInventario:N0}",       ColorTranslator.FromHtml("#8B5CF6"), "COP estimado"),
+                ("💰", "Valor Inventario",   $"${stats.ValorInventario:N0}",       AppColors.AccentPurple, "COP estimado"),
             };
 
-            int cardW = 230, cardH = 120, cx = 24, cy = 88, gap = 16;
+            const int cardW = 230, cardH = 120;
+            _metricCards.Clear();
             foreach (var (icon, label, value, color, sub) in metrics)
             {
-                Controls.Add(CreateMetricCard(icon, label, value, color, sub, new Point(cx, cy), new Size(cardW, cardH)));
-                cx += cardW + gap;
-                if (cx + cardW > 1350) { cx = 24; cy += cardH + gap; }
+                var card = CreateMetricCard(icon, label, value, color, sub, Point.Empty, new Size(cardW, cardH));
+                Controls.Add(card);
+                _metricCards.Add(card);
             }
 
-            int sectionY = cy + cardH + 28;
-
             // ── Título tabla ────────────────────────────────────────────
-            Controls.Add(new Label { Text = "Movimientos Recientes", Font = AppFonts.SubHeading, ForeColor = AppColors.TextPrimary, Location = new Point(24, sectionY), AutoSize = true, BackColor = Color.Transparent });
+            _lblRecent = new Label { Text = "Movimientos Recientes", Font = AppFonts.SubHeading, ForeColor = AppColors.TextPrimary, AutoSize = true, BackColor = Color.Transparent };
+            Controls.Add(_lblRecent);
 
             // ── Tabla movimientos ───────────────────────────────────────
-            var tableCard = new CardPanel { Location = new Point(24, sectionY + 30), Size = new Size(740, 240) };
+            _tableCard = new CardPanel { Size = new Size(740, 240) };
             var dgv = new DataGridView { Dock = DockStyle.Fill };
             UIHelper.StyleDataGridView(dgv);
             dgv.Columns.Add("Producto", "Producto");
@@ -80,16 +83,60 @@ namespace GestorInventario.Forms
                 int r = dgv.Rows.Add(m.NombreProducto, m.TipoMovimiento, m.Cantidad, m.NombreUsuario, m.Fecha.ToString("dd/MM/yyyy HH:mm"));
                 dgv.Rows[r].Cells["Tipo"].Style.ForeColor = m.TipoMovimiento == "Entrada" ? AppColors.Success : AppColors.Danger;
             }
-            tableCard.Controls.Add(dgv);
-            Controls.Add(tableCard);
+            _tableCard.Controls.Add(dgv);
+            UIHelper.BindEmptyState(dgv, "Sin movimientos registrados todavía.");
+            Controls.Add(_tableCard);
 
             // ── Panel estado ────────────────────────────────────────────
-            Controls.Add(new Label { Text = "Estado del Inventario", Font = AppFonts.SubHeading, ForeColor = AppColors.TextPrimary, Location = new Point(780, sectionY), AutoSize = true, BackColor = Color.Transparent });
-            var alertCard = new CardPanel { Location = new Point(780, sectionY + 30), Size = new Size(360, 240) };
-            BuildAlertsSummary(alertCard, stats);
-            Controls.Add(alertCard);
+            _lblEstado = new Label { Text = "Estado del Inventario", Font = AppFonts.SubHeading, ForeColor = AppColors.TextPrimary, AutoSize = true, BackColor = Color.Transparent };
+            Controls.Add(_lblEstado);
+            _alertCard = new CardPanel { Size = new Size(360, 240) };
+            BuildAlertsSummary(_alertCard, stats);
+            Controls.Add(_alertCard);
+
+            // No se llama de inmediato: el formulario aún tiene el tamaño provisional
+            // de WinForms en este punto. RelayoutDashboard se dispara con el primer
+            // Resize real, que ocurre al acoplarse al panel de contenido principal.
+            Resize += (s, e) => RelayoutDashboard();
 
             ResumeLayout();
+        }
+
+        // Reubica las tarjetas de KPI según el ancho real de la ventana (en vez de
+        // un umbral fijo en píxeles) y deja la tabla de movimientos llenando el
+        // espacio disponible mientras el panel de estado queda fijo a la derecha.
+        private void RelayoutDashboard()
+        {
+            if (_metricCards.Count == 0) return;
+
+            const int cardW = 230, cardH = 120, gap = 16, margin = 24;
+            int rightEdge = Math.Max(margin + cardW, ClientSize.Width - margin);
+            int cx = margin, cy = 88;
+            foreach (var card in _metricCards)
+            {
+                if (cx != margin && cx + cardW > rightEdge)
+                {
+                    cx = margin;
+                    cy += cardH + gap;
+                }
+                card.Location = new Point(cx, cy);
+                cx += cardW + gap;
+            }
+
+            int sectionY = cy + cardH + 28;
+            _lblRecent.Location = new Point(margin, sectionY);
+            _tableCard.Location = new Point(margin, sectionY + 30);
+
+            const int alertWidth = 360, spacing = 16;
+            int right = Math.Max(_tableCard.Left + 360 + spacing + alertWidth, ClientSize.Width - margin);
+            _alertCard.Left = right - alertWidth;
+            _alertCard.Top = sectionY + 30;
+            _lblEstado.Location = new Point(_alertCard.Left, sectionY);
+            _tableCard.Width = Math.Max(360, _alertCard.Left - spacing - _tableCard.Left);
+
+            int bottomHeight = Math.Max(180, ClientSize.Height - _tableCard.Top - 24);
+            _tableCard.Height = bottomHeight;
+            _alertCard.Height = bottomHeight;
         }
 
         private Panel CreateMetricCard(string icon, string label, string value, Color accentColor, string sub, Point location, Size size)

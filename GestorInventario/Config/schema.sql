@@ -55,6 +55,63 @@ INSERT INTO tb_proveedores (nombre, telefono, correo, direccion) VALUES
     ('GlobalParts Ltda.', '555-0303', 'pedidos@globalparts.com', 'Zona Industrial Bloque 5')
 ON CONFLICT DO NOTHING;
 
+-- ── Categorías de productos ─────────────────────────────────────
+CREATE TABLE IF NOT EXISTS tb_categorias (
+    id         SERIAL PRIMARY KEY,
+    nombre     VARCHAR(100) NOT NULL UNIQUE,
+    descripcion TEXT,
+    activo     BOOLEAN DEFAULT TRUE,
+    creado_en  TIMESTAMP DEFAULT NOW()
+);
+
+INSERT INTO tb_categorias (nombre, descripcion) VALUES
+    ('Electrónica', 'Monitores, televisores, pantallas LED y accesorios visuales'),
+    ('Periféricos', 'Teclados, mouse, audífonos, micrófonos y gamepads'),
+    ('Cables', 'Cables HDMI, DisplayPort, USB-C, adaptadores y patch cords'),
+    ('Almacenamiento', 'Discos SSD, discos duros externos, memorias RAM y tarjetas SD'),
+    ('Accesorios', 'Hubs, soportes y otros accesorios varios')
+ON CONFLICT DO NOTHING;
+
+-- ── Clientes ────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS tb_clientes (
+    id         SERIAL PRIMARY KEY,
+    nombre     VARCHAR(150) NOT NULL,
+    documento  VARCHAR(30) NOT NULL UNIQUE,
+    telefono   VARCHAR(20),
+    correo     VARCHAR(150),
+    direccion  TEXT,
+    activo     BOOLEAN DEFAULT TRUE,
+    creado_en  TIMESTAMP DEFAULT NOW()
+);
+
+INSERT INTO tb_clientes (nombre, documento, telefono, correo, direccion) VALUES
+    ('Carlos Andrés Pérez', '1020304050', '3001234567', 'carlos.perez@correo.com', 'Calle 50 #40-20, Medellín'),
+    ('María Fernanda Gómez', '1030405060', '3109876543', 'maria.gomez@correo.com', 'Carrera 70 #10-15, Medellín'),
+    ('Distribuidora Los Andes S.A.S.', '900123456-1', '6044445566', 'ventas@losandes.com', 'Zona Industrial #12-30, Itagüí')
+ON CONFLICT DO NOTHING;
+
+-- ── Empleados ───────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS tb_empleados (
+    id                 SERIAL PRIMARY KEY,
+    nombre             VARCHAR(150) NOT NULL,
+    documento          VARCHAR(30) NOT NULL UNIQUE,
+    rol                VARCHAR(100) NOT NULL,
+    telefono           VARCHAR(20),
+    correo             VARCHAR(150),
+    direccion          TEXT,
+    fecha_ingreso      DATE NOT NULL DEFAULT CURRENT_DATE,
+    fecha_retiro       DATE,
+    datos_adicionales  TEXT,
+    activo             BOOLEAN DEFAULT TRUE,
+    creado_en          TIMESTAMP DEFAULT NOW()
+);
+
+INSERT INTO tb_empleados (nombre, documento, rol, telefono, correo, direccion, fecha_ingreso, datos_adicionales) VALUES
+    ('Lorena Correa', '1020456789', 'Cajero / Facturación', '3004567890', 'lorena.correa@empresa.com', 'Calle 45 #30-10, Medellín', '2023-02-01', 'Encargada del módulo de caja y facturación principal.'),
+    ('Ana María Torres', '1035987654', 'Almacenista', '3116549870', 'ana.torres@empresa.com', 'Carrera 80 #25-40, Robledo', '2022-06-15', 'Supervisión de recepciones y control de stock físico.'),
+    ('Javier Saldarriaga', '71234567', 'Administrador del Sistema', '3159988776', 'javier.saldarriaga@empresa.com', 'Av. Poblado #10-50, Medellín', '2021-01-10', 'Administración general, gestión de usuarios y parámetros.')
+ON CONFLICT DO NOTHING;
+
 -- ── Productos ───────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS tb_productos (
     id             SERIAL PRIMARY KEY,
@@ -355,6 +412,202 @@ CREATE OR REPLACE FUNCTION sp_eliminar_proveedor(p_id INT)
 RETURNS BOOLEAN AS $$
 BEGIN
     UPDATE tb_proveedores SET activo = false WHERE id = p_id;
+    RETURN TRUE;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ── SP: CRUD Categorías ─────────────────────────────────────
+CREATE OR REPLACE FUNCTION sp_crear_categoria(
+    p_nombre      VARCHAR,
+    p_descripcion TEXT
+)
+RETURNS INT AS $$
+DECLARE
+    v_id INT;
+BEGIN
+    IF p_nombre IS NULL OR TRIM(p_nombre) = '' THEN
+        RAISE EXCEPTION 'El nombre de la categoría es obligatorio';
+    END IF;
+    IF EXISTS (SELECT 1 FROM tb_categorias WHERE nombre = p_nombre) THEN
+        RAISE EXCEPTION 'Ya existe una categoría con el nombre %', p_nombre;
+    END IF;
+
+    INSERT INTO tb_categorias (nombre, descripcion)
+    VALUES (p_nombre, p_descripcion)
+    RETURNING id INTO v_id;
+
+    RETURN v_id;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION sp_actualizar_categoria(
+    p_id          INT,
+    p_nombre      VARCHAR,
+    p_descripcion TEXT
+)
+RETURNS BOOLEAN AS $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM tb_categorias WHERE id = p_id AND activo = true) THEN
+        RAISE EXCEPTION 'Categoría no encontrada';
+    END IF;
+    IF EXISTS (SELECT 1 FROM tb_categorias WHERE nombre = p_nombre AND id <> p_id) THEN
+        RAISE EXCEPTION 'Ya existe otra categoría con el nombre %', p_nombre;
+    END IF;
+
+    UPDATE tb_categorias
+    SET nombre      = p_nombre,
+        descripcion = p_descripcion
+    WHERE id = p_id;
+
+    RETURN TRUE;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION sp_eliminar_categoria(p_id INT)
+RETURNS BOOLEAN AS $$
+BEGIN
+    UPDATE tb_categorias SET activo = false WHERE id = p_id;
+    RETURN TRUE;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ── SP: CRUD Clientes ───────────────────────────────────────
+CREATE OR REPLACE FUNCTION sp_crear_cliente(
+    p_nombre    VARCHAR,
+    p_documento VARCHAR,
+    p_telefono  VARCHAR,
+    p_correo    VARCHAR,
+    p_direccion TEXT
+)
+RETURNS INT AS $$
+DECLARE
+    v_id INT;
+BEGIN
+    IF p_nombre IS NULL OR TRIM(p_nombre) = '' THEN
+        RAISE EXCEPTION 'El nombre del cliente es obligatorio';
+    END IF;
+    IF EXISTS (SELECT 1 FROM tb_clientes WHERE documento = p_documento) THEN
+        RAISE EXCEPTION 'Ya existe un cliente con el documento %', p_documento;
+    END IF;
+
+    INSERT INTO tb_clientes (nombre, documento, telefono, correo, direccion)
+    VALUES (p_nombre, p_documento, p_telefono, p_correo, p_direccion)
+    RETURNING id INTO v_id;
+
+    RETURN v_id;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION sp_actualizar_cliente(
+    p_id        INT,
+    p_nombre    VARCHAR,
+    p_documento VARCHAR,
+    p_telefono  VARCHAR,
+    p_correo    VARCHAR,
+    p_direccion TEXT
+)
+RETURNS BOOLEAN AS $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM tb_clientes WHERE id = p_id AND activo = true) THEN
+        RAISE EXCEPTION 'Cliente no encontrado';
+    END IF;
+    IF EXISTS (SELECT 1 FROM tb_clientes WHERE documento = p_documento AND id <> p_id) THEN
+        RAISE EXCEPTION 'Ya existe otro cliente con el documento %', p_documento;
+    END IF;
+
+    UPDATE tb_clientes
+    SET nombre    = p_nombre,
+        documento = p_documento,
+        telefono  = p_telefono,
+        correo    = p_correo,
+        direccion = p_direccion
+    WHERE id = p_id;
+
+    RETURN TRUE;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION sp_eliminar_cliente(p_id INT)
+RETURNS BOOLEAN AS $$
+BEGIN
+    UPDATE tb_clientes SET activo = false WHERE id = p_id;
+    RETURN TRUE;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ── SP: CRUD Empleados ──────────────────────────────────────
+CREATE OR REPLACE FUNCTION sp_crear_empleado(
+    p_nombre            VARCHAR,
+    p_documento         VARCHAR,
+    p_rol               VARCHAR,
+    p_telefono          VARCHAR,
+    p_correo            VARCHAR,
+    p_direccion         TEXT,
+    p_fecha_ingreso     DATE,
+    p_datos_adicionales TEXT
+)
+RETURNS INT AS $$
+DECLARE
+    v_id INT;
+BEGIN
+    IF p_nombre IS NULL OR TRIM(p_nombre) = '' THEN
+        RAISE EXCEPTION 'El nombre del empleado es obligatorio';
+    END IF;
+    IF EXISTS (SELECT 1 FROM tb_empleados WHERE documento = p_documento) THEN
+        RAISE EXCEPTION 'Ya existe un empleado con el documento %', p_documento;
+    END IF;
+
+    INSERT INTO tb_empleados
+        (nombre, documento, rol, telefono, correo, direccion, fecha_ingreso, datos_adicionales)
+    VALUES
+        (p_nombre, p_documento, p_rol, p_telefono, p_correo, p_direccion, p_fecha_ingreso, p_datos_adicionales)
+    RETURNING id INTO v_id;
+
+    RETURN v_id;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION sp_actualizar_empleado(
+    p_id                INT,
+    p_nombre            VARCHAR,
+    p_documento         VARCHAR,
+    p_rol               VARCHAR,
+    p_telefono          VARCHAR,
+    p_correo            VARCHAR,
+    p_direccion         TEXT,
+    p_fecha_ingreso     DATE,
+    p_fecha_retiro      DATE,
+    p_datos_adicionales TEXT
+)
+RETURNS BOOLEAN AS $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM tb_empleados WHERE id = p_id AND activo = true) THEN
+        RAISE EXCEPTION 'Empleado no encontrado';
+    END IF;
+    IF EXISTS (SELECT 1 FROM tb_empleados WHERE documento = p_documento AND id <> p_id) THEN
+        RAISE EXCEPTION 'Ya existe otro empleado con el documento %', p_documento;
+    END IF;
+
+    UPDATE tb_empleados
+    SET nombre            = p_nombre,
+        documento         = p_documento,
+        rol               = p_rol,
+        telefono          = p_telefono,
+        correo            = p_correo,
+        direccion         = p_direccion,
+        fecha_ingreso     = p_fecha_ingreso,
+        fecha_retiro      = p_fecha_retiro,
+        datos_adicionales = p_datos_adicionales
+    WHERE id = p_id;
+
+    RETURN TRUE;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION sp_eliminar_empleado(p_id INT)
+RETURNS BOOLEAN AS $$
+BEGIN
+    UPDATE tb_empleados SET activo = false WHERE id = p_id;
     RETURN TRUE;
 END;
 $$ LANGUAGE plpgsql;

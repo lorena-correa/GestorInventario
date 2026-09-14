@@ -29,6 +29,16 @@ namespace GestorInventario.Forms
             FormBorderStyle = FormBorderStyle.Sizable;
             BuildLayout();
             LoadModule(new FrmDashboard(), "Dashboard", "Dashboard");
+
+            // Fuerza un repintado completo del sidebar una vez que la ventana
+            // ya está totalmente visible y maximizada: evita un glitch de
+            // renderizado en el que los primeros ítems del menú no se pintan
+            // durante el arranque/maximizado inicial.
+            Shown += (s, e) =>
+            {
+                _sidebar.Invalidate(true);
+                _sidebar.Update();
+            };
         }
 
         private void BuildLayout()
@@ -105,17 +115,13 @@ namespace GestorInventario.Forms
                     break;
 
                 // ── AYUDA ───────────────────────────────────────────
-                case "Ayuda Web":
-                    LoadModule(new frmAyuda(), "Centro de Ayuda y Documentación", "Ayuda Web");
-                    break;
                 case "Acerca de":
                     LoadModule(new frmAcercaDe(), "Acerca del Sistema", "Acerca de");
                     break;
 
                 // ── CERRAR SESIÓN ───────────────────────────────────
                 case "Logout":
-                    if (MessageBox.Show("¿Desea cerrar la sesión actual?", "Cerrar sesión",
-                        MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+                    if (ModernMessageBox.ShowConfirm("¿Desea cerrar la sesión actual?", "Cerrar sesión", "Cerrar sesión") == DialogResult.Yes)
                     {
                         Session.Clear();
                         var login = new FrmLogin();

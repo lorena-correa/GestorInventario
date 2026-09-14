@@ -49,7 +49,7 @@ namespace GestorInventario.Forms
             int x = 20, y = 60, w = 420;
 
             // Producto
-            AddComboField(formCard, "PRODUCTO *", out cboProducto, x, y, w);
+            UIHelper.CreateRoundedComboBox(formCard, "PRODUCTO *", out cboProducto, x, y, w);
             try
             {
                 _productos = _prodService.ObtenerTodos();
@@ -59,7 +59,7 @@ namespace GestorInventario.Forms
             y += 76;
 
             // Proveedor
-            AddComboField(formCard, "PROVEEDOR", out cboProveedor, x, y, w);
+            UIHelper.CreateRoundedComboBox(formCard, "PROVEEDOR", out cboProveedor, x, y, w);
             try
             {
                 _proveedores = _provService.ObtenerTodos();
@@ -69,17 +69,13 @@ namespace GestorInventario.Forms
             y += 76;
 
             // Cantidad | Fecha
-            AddTextField(formCard, "CANTIDAD *", out txtCantidad, x, y, 190);
-            var lblF = new Label { Text = "FECHA *", Font = AppFonts.SmallBold, ForeColor = AppColors.TextSecondary, Location = new Point(x + 210, y), AutoSize = true, BackColor = Color.Transparent };
-            dtpFecha = new DateTimePicker { Location = new Point(x + 210, y + 22), Size = new Size(210, 36), Font = AppFonts.Body, Format = DateTimePickerFormat.Short };
-            formCard.Controls.Add(lblF);
-            formCard.Controls.Add(dtpFecha);
+            UIHelper.CreateRoundedTextBox(formCard, "CANTIDAD *", out txtCantidad, x, y, 190);
+            UIHelper.CreateRoundedDateTimePicker(formCard, "FECHA *", out dtpFecha, x + 210, y, 210);
             y += 76;
 
             // Observación
-            AddTextField(formCard, "OBSERVACIÓN", out txtObservacion, x, y, w, multiline: true);
-            txtObservacion.Height = 65;
-            y += 100;
+            UIHelper.CreateRoundedTextBox(formCard, "OBSERVACIÓN", out txtObservacion, x, y, w, 90, multiline: true);
+            y += 116;
 
             var btnGuardar = UIHelper.CreatePrimaryButton("💾 Registrar Entrada", new Size(180, 42), new Point(x, y));
             btnGuardar.Click += BtnGuardar_Click;
@@ -115,8 +111,12 @@ namespace GestorInventario.Forms
             dgvRecientes.Columns.Add("Usuario", "Usuario");
             dgvRecientes.Columns.Add("Fecha", "Fecha");
             tableCard.Controls.Add(dgvRecientes);
+            UIHelper.BindEmptyState(dgvRecientes, "No hay entradas registradas todavía.", "📥");
 
             Controls.Add(tableCard);
+
+            UIHelper.BindFillWidth(this, tableCard, 24);
+            UIHelper.BindFillHeight(this, tableCard, 24);
 
             ResumeLayout();
         }
@@ -140,8 +140,7 @@ namespace GestorInventario.Forms
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error al cargar entradas: {ex.Message}",
-                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.ShowError($"Error al cargar entradas: {ex.Message}");
             }
         }
 
@@ -150,18 +149,18 @@ namespace GestorInventario.Forms
             // Validaciones
             if (cboProducto.SelectedIndex < 0)
             {
-                MessageBox.Show("Debes seleccionar un producto.", "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.ShowWarning("Debes seleccionar un producto.", "Validación");
                 return;
             }
             if (!int.TryParse(txtCantidad.Text, out int qty) || qty <= 0)
             {
-                MessageBox.Show("La cantidad debe ser un número mayor a cero.", "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.ShowWarning("La cantidad debe ser un número mayor a cero.", "Validación");
                 txtCantidad.Focus();
                 return;
             }
             if (dtpFecha.Value.Date > DateTime.Today)
             {
-                MessageBox.Show("La fecha no puede ser futura.", "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.ShowWarning("La fecha no puede ser futura.", "Validación");
                 return;
             }
 
@@ -188,15 +187,13 @@ namespace GestorInventario.Forms
             try
             {
                 _movService.RegistrarEntrada(mov);
-                MessageBox.Show("Entrada registrada correctamente.", "Éxito",
-                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ModernMessageBox.ShowSuccess("Entrada registrada correctamente.");
                 Limpiar();
                 LoadRecentes();
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "Error al registrar",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.ShowError(ex.Message, "Error al registrar");
             }
         }
 
@@ -207,22 +204,6 @@ namespace GestorInventario.Forms
             txtCantidad.Clear();
             txtObservacion.Clear();
             dtpFecha.Value = DateTime.Now;
-        }
-
-        private void AddComboField(Panel parent, string label, out ComboBox cbo, int x, int y, int w)
-        {
-            var lbl = new Label { Text = label, Font = AppFonts.SmallBold, ForeColor = AppColors.TextSecondary, Location = new Point(x, y), AutoSize = true, BackColor = Color.Transparent };
-            cbo = new ComboBox { Location = new Point(x, y + 22), Size = new Size(w, 36), Font = AppFonts.Body, FlatStyle = FlatStyle.Flat, DropDownStyle = ComboBoxStyle.DropDownList };
-            parent.Controls.Add(lbl);
-            parent.Controls.Add(cbo);
-        }
-
-        private void AddTextField(Panel parent, string label, out TextBox txt, int x, int y, int w, bool multiline = false)
-        {
-            var lbl = new Label { Text = label, Font = AppFonts.SmallBold, ForeColor = AppColors.TextSecondary, Location = new Point(x, y), AutoSize = true, BackColor = Color.Transparent };
-            txt = new TextBox { Location = new Point(x, y + 22), Size = new Size(w, 36), Font = AppFonts.Body, BorderStyle = BorderStyle.FixedSingle, Multiline = multiline };
-            parent.Controls.Add(lbl);
-            parent.Controls.Add(txt);
         }
     }
 
@@ -274,16 +255,13 @@ namespace GestorInventario.Forms
             int x = 20, y = 60, w = 420;
 
             // Producto + stock disponible
-            var lblP = new Label { Text = "PRODUCTO *", Font = AppFonts.SmallBold, ForeColor = AppColors.TextSecondary, Location = new Point(x, y), AutoSize = true, BackColor = Color.Transparent };
-            cboProducto = new ComboBox { Location = new Point(x, y + 22), Size = new Size(w, 36), Font = AppFonts.Body, FlatStyle = FlatStyle.Flat, DropDownStyle = ComboBoxStyle.DropDownList };
+            UIHelper.CreateRoundedComboBox(formCard, "PRODUCTO *", out cboProducto, x, y, w);
             try
             {
                 _productos = _prodService.ObtenerTodos();
                 foreach (var p in _productos) cboProducto.Items.Add(p.Nombre);
             }
             catch { }
-            formCard.Controls.Add(lblP);
-            formCard.Controls.Add(cboProducto);
             y += 76;
 
             // Label stock disponible
@@ -302,28 +280,18 @@ namespace GestorInventario.Forms
             };
 
             // Motivo
-            var lblM = new Label { Text = "MOTIVO *", Font = AppFonts.SmallBold, ForeColor = AppColors.TextSecondary, Location = new Point(x, y), AutoSize = true, BackColor = Color.Transparent };
-            cboMotivo = new ComboBox { Location = new Point(x, y + 22), Size = new Size(w, 36), Font = AppFonts.Body, FlatStyle = FlatStyle.Flat, DropDownStyle = ComboBoxStyle.DropDownList };
+            UIHelper.CreateRoundedComboBox(formCard, "MOTIVO *", out cboMotivo, x, y, w);
             foreach (var motivo in _motivos.Keys) cboMotivo.Items.Add(motivo);
-            formCard.Controls.Add(lblM);
-            formCard.Controls.Add(cboMotivo);
             y += 76;
 
             // Cantidad | Fecha
-            var lblCant = new Label { Text = "CANTIDAD *", Font = AppFonts.SmallBold, ForeColor = AppColors.TextSecondary, Location = new Point(x, y), AutoSize = true, BackColor = Color.Transparent };
-            txtCantidad = new TextBox { Location = new Point(x, y + 22), Size = new Size(190, 36), Font = AppFonts.Body, BorderStyle = BorderStyle.FixedSingle };
-            var lblF = new Label { Text = "FECHA *", Font = AppFonts.SmallBold, ForeColor = AppColors.TextSecondary, Location = new Point(x + 210, y), AutoSize = true, BackColor = Color.Transparent };
-            dtpFecha = new DateTimePicker { Location = new Point(x + 210, y + 22), Size = new Size(210, 36), Font = AppFonts.Body, Format = DateTimePickerFormat.Short };
-            formCard.Controls.Add(lblCant); formCard.Controls.Add(txtCantidad);
-            formCard.Controls.Add(lblF); formCard.Controls.Add(dtpFecha);
+            UIHelper.CreateRoundedTextBox(formCard, "CANTIDAD *", out txtCantidad, x, y, 190);
+            UIHelper.CreateRoundedDateTimePicker(formCard, "FECHA *", out dtpFecha, x + 210, y, 210);
             y += 76;
 
             // Observación
-            var lblObs = new Label { Text = "OBSERVACIÓN", Font = AppFonts.SmallBold, ForeColor = AppColors.TextSecondary, Location = new Point(x, y), AutoSize = true, BackColor = Color.Transparent };
-            txtObservacion = new TextBox { Location = new Point(x, y + 22), Size = new Size(w, 60), Font = AppFonts.Body, BorderStyle = BorderStyle.FixedSingle, Multiline = true };
-            formCard.Controls.Add(lblObs);
-            formCard.Controls.Add(txtObservacion);
-            y += 96;
+            UIHelper.CreateRoundedTextBox(formCard, "OBSERVACIÓN", out txtObservacion, x, y, w, 90, multiline: true);
+            y += 116;
 
             var btnGuardar = UIHelper.CreateDangerButton("💾 Registrar Salida", new Size(180, 42), new Point(x, y));
             btnGuardar.Click += BtnGuardar_Click;
@@ -359,8 +327,12 @@ namespace GestorInventario.Forms
             dgvRecientes.Columns.Add("Usuario", "Usuario");
             dgvRecientes.Columns.Add("Fecha", "Fecha");
             tableCard.Controls.Add(dgvRecientes);
+            UIHelper.BindEmptyState(dgvRecientes, "No hay salidas registradas todavía.", "📤");
 
             Controls.Add(tableCard);
+
+            UIHelper.BindFillWidth(this, tableCard, 24);
+            UIHelper.BindFillHeight(this, tableCard, 24);
 
             ResumeLayout();
         }
@@ -381,8 +353,7 @@ namespace GestorInventario.Forms
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error al cargar salidas: {ex.Message}",
-                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.ShowError($"Error al cargar salidas: {ex.Message}");
             }
         }
 
@@ -391,23 +362,23 @@ namespace GestorInventario.Forms
             // Validaciones
             if (cboProducto.SelectedIndex < 0)
             {
-                MessageBox.Show("Debes seleccionar un producto.", "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.ShowWarning("Debes seleccionar un producto.", "Validación");
                 return;
             }
             if (cboMotivo.SelectedIndex < 0)
             {
-                MessageBox.Show("Debes seleccionar un motivo.", "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.ShowWarning("Debes seleccionar un motivo.", "Validación");
                 return;
             }
             if (!int.TryParse(txtCantidad.Text, out int qty) || qty <= 0)
             {
-                MessageBox.Show("La cantidad debe ser un número mayor a cero.", "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.ShowWarning("La cantidad debe ser un número mayor a cero.", "Validación");
                 txtCantidad.Focus();
                 return;
             }
             if (dtpFecha.Value.Date > DateTime.Today)
             {
-                MessageBox.Show("La fecha no puede ser futura.", "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.ShowWarning("La fecha no puede ser futura.", "Validación");
                 return;
             }
 
@@ -415,8 +386,7 @@ namespace GestorInventario.Forms
             var producto = _productos[cboProducto.SelectedIndex];
             if (qty > producto.StockActual)
             {
-                MessageBox.Show($"Stock insuficiente. Disponible: {producto.StockActual}, solicitado: {qty}.",
-                    "Stock insuficiente", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.ShowWarning($"Stock insuficiente. Disponible: {producto.StockActual}, solicitado: {qty}.", "Stock insuficiente");
                 return;
             }
 
@@ -441,15 +411,13 @@ namespace GestorInventario.Forms
             try
             {
                 _movService.RegistrarSalida(mov);
-                MessageBox.Show("Salida registrada correctamente.", "Éxito",
-                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ModernMessageBox.ShowSuccess("Salida registrada correctamente.");
                 Limpiar();
                 LoadRecentes();
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "Error al registrar",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.ShowError(ex.Message, "Error al registrar");
             }
         }
 

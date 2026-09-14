@@ -1,9 +1,10 @@
 using System;
-using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 using GestorInventario.Components;
 using GestorInventario.Helpers;
+using GestorInventario.Models;
+using GestorInventario.Services;
 
 namespace GestorInventario.Forms
 {
@@ -17,18 +18,9 @@ namespace GestorInventario.Forms
         private Button btnNuevo = null!;
         private Button btnEditar = null!;
         private Button btnBorrar = null!;
+        private readonly CategoriaService _service = new();
 
-        private readonly List<CategoriaItem> _listaCategorias = new()
-        {
-            new CategoriaItem { Id = 1, Nombre = "Electrónica y Pantallas", Descripcion = "Monitores, televisores, pantallas LED y accesorios visuales", TotalProductos = 14 },
-            new CategoriaItem { Id = 2, Nombre = "Periféricos y Controles", Descripcion = "Teclados, mouse, audífonos, micrófonos y gamepads", TotalProductos = 28 },
-            new CategoriaItem { Id = 3, Nombre = "Cables y Conectores", Descripcion = "Cables HDMI, DisplayPort, USB-C, adaptadores y patch cords", TotalProductos = 42 },
-            new CategoriaItem { Id = 4, Nombre = "Almacenamiento Digital", Descripcion = "Discos SSD, discos duros externos, memorias RAM y tarjetas SD", TotalProductos = 19 },
-            new CategoriaItem { Id = 5, Nombre = "Redes y Conectividad", Descripcion = "Routers Wi-Fi 6, switches, access points y tarjetas de red", TotalProductos = 11 },
-            new CategoriaItem { Id = 6, Nombre = "Componentes de PC", Descripcion = "Fuentes de poder, tarjetas de video, procesadores y disipadores", TotalProductos = 9 }
-        };
-
-        private CategoriaItem? _categoriaSeleccionada;
+        private Categoria? _categoriaSeleccionada;
 
         public frmlista_CategoriaProductos()
         {
@@ -45,43 +37,45 @@ namespace GestorInventario.Forms
             var toolbarCard = new CardPanel
             {
                 Location = new Point(20, 16),
-                Size = new Size(1140, 72),
-                Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right
+                Size = new Size(1140, 64),
+                Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right,
+                Padding = new Padding(0, 13, 20, 13)
             };
 
-            var lblTitulo = new Label
+            var lblIcono = new Label
             {
-                Text = "🏷️  CATEGORÍAS DE PRODUCTOS",
-                Font = AppFonts.Heading,
-                ForeColor = AppColors.TextPrimary,
-                Location = new Point(16, 12),
-                AutoSize = true,
+                Text = "🏷️",
+                Font = new Font("Segoe UI Emoji", 16f),
+                Location = new Point(20, 14),
+                Size = new Size(36, 36),
+                TextAlign = ContentAlignment.MiddleCenter,
                 BackColor = Color.Transparent
             };
-            toolbarCard.Controls.Add(lblTitulo);
+            toolbarCard.Controls.Add(lblIcono);
 
             var lblSubtitulo = new Label
             {
                 Text = "Administración y clasificación del catálogo de inventario por familias",
                 Font = AppFonts.Small,
                 ForeColor = AppColors.TextSecondary,
-                Location = new Point(18, 42),
-                AutoSize = true,
+                Location = new Point(64, 24),
+                Size = new Size(400, 18),
+                AutoEllipsis = true,
                 BackColor = Color.Transparent
             };
             toolbarCard.Controls.Add(lblSubtitulo);
 
-            // Contenedor de acciones alineado a la derecha sin superposiciones
+            // Contenedor de acciones alineado a la derecha (Dock, no Anchor con
+            // coordenada fija: así nunca se descuadra al redimensionar la tarjeta)
             var actionsPanel = new FlowLayoutPanel
             {
                 FlowDirection = FlowDirection.LeftToRight,
                 WrapContents = false,
                 AutoSize = true,
-                Location = new Point(480, 16),
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                BackColor = Color.Transparent,
-                Height = 44
+                Dock = DockStyle.Right,
+                BackColor = Color.Transparent
             };
+            UIHelper.BindFillWidthUntil(this, lblSubtitulo, actionsPanel, 16);
 
             UIHelper.CreateSearchInput(actionsPanel, out txtBuscar, 0, 0, 220, 38, "Buscar categoría...");
             txtBuscar.TextChanged += (s, e) => CargarDatos(txtBuscar.Text);
@@ -91,13 +85,13 @@ namespace GestorInventario.Forms
             btnNuevo.Click += (s, e) => AbrirFormularioCategoria(null);
             actionsPanel.Controls.Add(btnNuevo);
 
-            btnEditar = UIHelper.CreateSecondaryButton("✏️ EDITAR", new Size(95, 38), new Point(0, 0));
+            btnEditar = UIHelper.CreateEditButton("✏️ EDITAR", new Size(95, 38), new Point(0, 0));
             btnEditar.Margin = new Padding(6, 0, 0, 0);
             btnEditar.Click += (s, e) =>
             {
                 if (_categoriaSeleccionada == null)
                 {
-                    MessageBox.Show("Seleccione una categoría para editar.", "Selección Requerida", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    ModernMessageBox.ShowWarning("Seleccione una categoría para editar.", "Selección Requerida");
                     return;
                 }
                 AbrirFormularioCategoria(_categoriaSeleccionada);
@@ -110,15 +104,22 @@ namespace GestorInventario.Forms
             {
                 if (_categoriaSeleccionada == null)
                 {
-                    MessageBox.Show("Seleccione una categoría para eliminar.", "Selección Requerida", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    ModernMessageBox.ShowWarning("Seleccione una categoría para eliminar.", "Selección Requerida");
                     return;
                 }
-                if (MessageBox.Show($"¿Eliminar categoría {_categoriaSeleccionada.Nombre}?", "Confirmar", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+                if (ModernMessageBox.ShowConfirm($"¿Eliminar categoría {_categoriaSeleccionada.Nombre}?", "Confirmar", "Eliminar") == DialogResult.Yes)
                 {
-                    _listaCategorias.Remove(_categoriaSeleccionada);
-                    _categoriaSeleccionada = null;
-                    CargarDatos(txtBuscar.Text);
-                    MessageBox.Show("Categoría eliminada con éxito.", "Éxito", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    try
+                    {
+                        _service.Eliminar(_categoriaSeleccionada.Id);
+                        _categoriaSeleccionada = null;
+                        CargarDatos(txtBuscar.Text);
+                        ModernMessageBox.ShowSuccess("Categoría eliminada con éxito.");
+                    }
+                    catch (Exception ex)
+                    {
+                        ModernMessageBox.ShowError(ex.Message, "Error al eliminar");
+                    }
                 }
             };
             actionsPanel.Controls.Add(btnBorrar);
@@ -128,7 +129,7 @@ namespace GestorInventario.Forms
 
             var cardGrid = new CardPanel
             {
-                Location = new Point(20, 100),
+                Location = new Point(20, 92),
                 Size = new Size(1140, 520),
                 Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom
             };
@@ -150,7 +151,7 @@ namespace GestorInventario.Forms
             dgvCategorias.SelectionChanged += (s, e) =>
             {
                 if (dgvCategorias.SelectedRows.Count > 0)
-                    _categoriaSeleccionada = dgvCategorias.SelectedRows[0].Tag as CategoriaItem;
+                    _categoriaSeleccionada = dgvCategorias.SelectedRows[0].Tag as Categoria;
             };
 
             dgvCategorias.CellDoubleClick += (s, e) =>
@@ -160,43 +161,39 @@ namespace GestorInventario.Forms
             };
 
             cardGrid.Controls.Add(dgvCategorias);
+            UIHelper.BindEmptyState(dgvCategorias, "No hay categorías registradas todavía.");
             Controls.Add(cardGrid);
+
+            UIHelper.BindFillWidth(this, toolbarCard, 20);
+            UIHelper.BindFillWidth(this, cardGrid, 20);
+            UIHelper.BindFillHeight(this, cardGrid, 24);
 
             ResumeLayout();
         }
 
         private void CargarDatos(string filtro = "")
         {
-            dgvCategorias.Rows.Clear();
-            foreach (var c in _listaCategorias)
+            try
             {
-                if (!string.IsNullOrEmpty(filtro) &&
-                    !c.Nombre.Contains(filtro, StringComparison.OrdinalIgnoreCase) &&
-                    !c.Descripcion.Contains(filtro, StringComparison.OrdinalIgnoreCase))
-                    continue;
-
-                int r = dgvCategorias.Rows.Add(c.Id, c.Nombre, c.Descripcion, $"{c.TotalProductos} ítems", "Activa");
-                dgvCategorias.Rows[r].Tag = c;
+                dgvCategorias.Rows.Clear();
+                var categorias = string.IsNullOrEmpty(filtro) ? _service.ObtenerTodos() : _service.Buscar(filtro);
+                foreach (var c in categorias)
+                {
+                    int r = dgvCategorias.Rows.Add(c.Id, c.Nombre, c.Descripcion, $"{c.TotalProductos} ítems",
+                        c.Activo ? "Activa" : "Inactiva");
+                    dgvCategorias.Rows[r].Tag = c;
+                }
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.ShowError($"Error al cargar categorías: {ex.Message}");
             }
         }
 
-        private void AbrirFormularioCategoria(CategoriaItem? cat)
+        private void AbrirFormularioCategoria(Categoria? cat)
         {
             var form = new frmCategoriaProductos(cat);
-            form.CategoriaGuardada += (nuevaCat) =>
-            {
-                if (cat == null)
-                {
-                    nuevaCat.Id = _listaCategorias.Count + 1;
-                    _listaCategorias.Add(nuevaCat);
-                }
-                else
-                {
-                    cat.Nombre = nuevaCat.Nombre;
-                    cat.Descripcion = nuevaCat.Descripcion;
-                }
-                CargarDatos(txtBuscar.Text);
-            };
+            form.CategoriaGuardada += () => CargarDatos(txtBuscar.Text);
             form.ShowDialog(this);
         }
     }
@@ -206,9 +203,10 @@ namespace GestorInventario.Forms
     // =========================================================================
     public class frmCategoriaProductos : Form
     {
-        public event Action<CategoriaItem>? CategoriaGuardada;
-        private readonly CategoriaItem? _categoria;
+        public event Action? CategoriaGuardada;
+        private readonly Categoria? _categoria;
         private readonly bool _esEdicion;
+        private readonly CategoriaService _service = new();
 
         // Controles de la guía
         private TextBox txtNombreCategoria = null!;
@@ -217,7 +215,7 @@ namespace GestorInventario.Forms
         private Button btnSalir = null!;
         private ErrorProvider errValidador = null!;
 
-        public frmCategoriaProductos(CategoriaItem? categoria = null)
+        public frmCategoriaProductos(Categoria? categoria = null)
         {
             _categoria = categoria;
             _esEdicion = categoria != null;
@@ -283,30 +281,25 @@ namespace GestorInventario.Forms
             if (string.IsNullOrWhiteSpace(txtNombreCategoria.Text))
             {
                 errValidador.SetError(txtNombreCategoria, "El Nombre de la Categoría es obligatorio.");
-                MessageBox.Show("Por favor complete el nombre de la categoría.", "Validación",
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.ShowWarning("Por favor complete el nombre de la categoría.", "Validación");
                 return;
             }
 
-            var cat = new CategoriaItem
+            var cat = _esEdicion ? _categoria! : new Categoria();
+            cat.Nombre = txtNombreCategoria.Text.Trim();
+            cat.Descripcion = txtDescripcion.Text.Trim();
+
+            try
             {
-                Nombre = txtNombreCategoria.Text.Trim(),
-                Descripcion = txtDescripcion.Text.Trim(),
-                TotalProductos = _categoria?.TotalProductos ?? 0
-            };
-
-            CategoriaGuardada?.Invoke(cat);
-            MessageBox.Show("¡Categoría guardada exitosamente!", "Operación Exitosa",
-                MessageBoxButtons.OK, MessageBoxIcon.Information);
-            Close();
+                _service.Guardar(cat);
+                ModernMessageBox.ShowSuccess("¡Categoría guardada exitosamente!", "Operación Exitosa");
+                CategoriaGuardada?.Invoke();
+                Close();
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.ShowError(ex.Message, "Error al guardar");
+            }
         }
-    }
-
-    public class CategoriaItem
-    {
-        public int Id { get; set; }
-        public string Nombre { get; set; } = string.Empty;
-        public string Descripcion { get; set; } = string.Empty;
-        public int TotalProductos { get; set; }
     }
 }

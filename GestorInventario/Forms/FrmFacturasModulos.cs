@@ -46,57 +46,52 @@ namespace GestorInventario.Forms
             var toolbarCard = new CardPanel
             {
                 Location = new Point(20, 16),
-                Size = new Size(1140, 76),
-                Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right
+                Size = new Size(1140, 64),
+                Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right,
+                Padding = new Padding(0, 13, 20, 13)
             };
 
-            var lblTitulo = new Label
+            var lblIcono = new Label
             {
-                Text = "🧾  ADMINISTRACIÓN DE FACTURAS",
-                Font = AppFonts.Heading,
-                ForeColor = AppColors.TextPrimary,
-                Location = new Point(16, 12),
-                AutoSize = true,
+                Text = "🧾",
+                Font = new Font("Segoe UI Emoji", 16f),
+                Location = new Point(20, 14),
+                Size = new Size(36, 36),
+                TextAlign = ContentAlignment.MiddleCenter,
                 BackColor = Color.Transparent
             };
-            toolbarCard.Controls.Add(lblTitulo);
+            toolbarCard.Controls.Add(lblIcono);
 
             var lblSubtitulo = new Label
             {
                 Text = "Registro de ventas, emisión de comprobantes fiscales y gestión de cobros",
                 Font = AppFonts.Small,
                 ForeColor = AppColors.TextSecondary,
-                Location = new Point(18, 42),
-                AutoSize = true,
+                Location = new Point(64, 24),
+                Size = new Size(320, 18),
+                AutoEllipsis = true,
                 BackColor = Color.Transparent
             };
             toolbarCard.Controls.Add(lblSubtitulo);
 
-            // Contenedor de acciones alineado a la derecha sin superposiciones
+            // Contenedor de acciones alineado a la derecha (Dock, no Anchor con
+            // coordenada fija: así nunca se descuadra al redimensionar la tarjeta)
             var actionsPanel = new FlowLayoutPanel
             {
                 FlowDirection = FlowDirection.LeftToRight,
                 WrapContents = false,
                 AutoSize = true,
-                Location = new Point(410, 16),
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                BackColor = Color.Transparent,
-                Height = 44
+                Dock = DockStyle.Right,
+                BackColor = Color.Transparent
             };
+            UIHelper.BindFillWidthUntil(this, lblSubtitulo, actionsPanel, 16);
 
             // Filtro Estado
-            cboFiltroEstado = new ComboBox
-            {
-                Size = new Size(115, 38),
-                Font = AppFonts.Body,
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                FlatStyle = FlatStyle.Flat
-            };
+            var cboFiltroEstadoContainer = UIHelper.CreateRoundedComboBox(actionsPanel, "", out cboFiltroEstado, 0, 0, 115, 38);
+            cboFiltroEstadoContainer.Margin = new Padding(0, 0, 6, 0);
             cboFiltroEstado.Items.AddRange(new[] { "Todos", "Pagada", "Pendiente", "Emitida", "Anulada" });
             cboFiltroEstado.SelectedIndex = 0;
             cboFiltroEstado.SelectedIndexChanged += (s, e) => CargarDatos(txtBuscar.Text);
-            cboFiltroEstado.Margin = new Padding(0, 3, 6, 0);
-            actionsPanel.Controls.Add(cboFiltroEstado);
 
             // Buscador moderno
             UIHelper.CreateSearchInput(actionsPanel, out txtBuscar, 0, 0, 190, 38, "Buscar factura...");
@@ -107,13 +102,13 @@ namespace GestorInventario.Forms
             btnNuevaFactura.Click += (s, e) => AbrirFormularioFactura(null);
             actionsPanel.Controls.Add(btnNuevaFactura);
 
-            btnVerDetalle = UIHelper.CreateSecondaryButton("👁️ VER", new Size(85, 38), new Point(0, 0));
+            btnVerDetalle = UIHelper.CreateEditButton("👁️ VER", new Size(85, 38), new Point(0, 0));
             btnVerDetalle.Margin = new Padding(6, 0, 0, 0);
             btnVerDetalle.Click += (s, e) =>
             {
                 if (_facturaSeleccionada == null)
                 {
-                    MessageBox.Show("Por favor seleccione una factura de la lista.", "Selección Requerida", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    ModernMessageBox.ShowWarning("Por favor seleccione una factura de la lista.", "Selección Requerida");
                     return;
                 }
                 AbrirFormularioFactura(_facturaSeleccionada);
@@ -126,14 +121,14 @@ namespace GestorInventario.Forms
             {
                 if (_facturaSeleccionada == null)
                 {
-                    MessageBox.Show("Por favor seleccione una factura para anular.", "Selección Requerida", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    ModernMessageBox.ShowWarning("Por favor seleccione una factura para anular.", "Selección Requerida");
                     return;
                 }
-                if (MessageBox.Show($"¿Desea anular la factura {_facturaSeleccionada.NroFactura}?", "Confirmar Anulación", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+                if (ModernMessageBox.ShowConfirm($"¿Desea anular la factura {_facturaSeleccionada.NroFactura}?", "Confirmar Anulación", "Anular") == DialogResult.Yes)
                 {
                     _facturaSeleccionada.Estado = "Anulada";
                     CargarDatos(txtBuscar.Text);
-                    MessageBox.Show("Factura anulada correctamente.", "Facturación", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    ModernMessageBox.ShowSuccess("Factura anulada correctamente.", "Facturación");
                 }
             };
             actionsPanel.Controls.Add(btnAnular);
@@ -143,7 +138,7 @@ namespace GestorInventario.Forms
 
             var cardGrid = new CardPanel
             {
-                Location = new Point(20, 104),
+                Location = new Point(20, 92),
                 Size = new Size(1140, 515),
                 Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom
             };
@@ -179,7 +174,12 @@ namespace GestorInventario.Forms
             };
 
             cardGrid.Controls.Add(dgvFacturas);
+            UIHelper.BindEmptyState(dgvFacturas, "No hay facturas registradas todavía.");
             Controls.Add(cardGrid);
+
+            UIHelper.BindFillWidth(this, toolbarCard, 20);
+            UIHelper.BindFillWidth(this, cardGrid, 20);
+            UIHelper.BindFillHeight(this, cardGrid, 24);
 
             ResumeLayout();
         }
@@ -327,11 +327,7 @@ namespace GestorInventario.Forms
 
             // Fila 1: Nro Factura | Fecha Registro | Estado | Empleado
             UIHelper.CreateRoundedTextBox(cardCabecera, "Nro Factura *", out txtNroFactura, 20, 12, 200, 36, readOnly: true);
-            
-            var lblFecha = new Label { Text = "Fecha Registro *", Font = AppFonts.SmallBold, ForeColor = AppColors.TextSecondary, Location = new Point(240, 12), AutoSize = true, BackColor = Color.Transparent };
-            dtpFechaRegistro = new DateTimePicker { Location = new Point(240, 32), Size = new Size(200, 32), Font = AppFonts.Body, Format = DateTimePickerFormat.Short };
-            cardCabecera.Controls.Add(lblFecha);
-            cardCabecera.Controls.Add(dtpFechaRegistro);
+            UIHelper.CreateRoundedDateTimePicker(cardCabecera, "Fecha Registro *", out dtpFechaRegistro, 240, 12, 200, 36);
 
             UIHelper.CreateRoundedComboBox(cardCabecera, "Estado Factura *", out cboEstadoFactura, 460, 12, 200, 36);
             cboEstadoFactura.Items.AddRange(new[] { "Emitida", "Pagada", "Pendiente", "Anulada" });
@@ -419,6 +415,7 @@ namespace GestorInventario.Forms
             dgvDetalle.Columns["Cantidad"].Width = 65;
 
             cardGrid.Controls.Add(dgvDetalle);
+            UIHelper.BindEmptyState(dgvDetalle, "Agrega productos para armar la factura.", "🧾");
             mainContent.Controls.Add(cardGrid);
 
             // ── SECCIÓN 4: TOTALES Y ACCIONES ────────────────────────────────
@@ -510,7 +507,7 @@ namespace GestorInventario.Forms
             }
             else
             {
-                MessageBox.Show("Seleccione una línea de la tabla para quitar.", "Selección", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ModernMessageBox.ShowInfo("Seleccione una línea de la tabla para quitar.", "Selección");
             }
         }
 
@@ -599,8 +596,7 @@ namespace GestorInventario.Forms
 
             if (hayErrores)
             {
-                MessageBox.Show("Por favor complete los campos obligatorios antes de continuar.",
-                    "Validación con ErrorProvider", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.ShowWarning("Por favor complete los campos obligatorios antes de continuar.", "Validación");
                 return;
             }
 
@@ -622,8 +618,7 @@ namespace GestorInventario.Forms
             };
 
             FacturaGuardada?.Invoke(facturaObj);
-            MessageBox.Show($"¡Factura {facturaObj.NroFactura} procesada exitosamente!\nTotal: ${facturaObj.TotalFactura:N0}",
-                "Facturación Exitosa", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            ModernMessageBox.ShowSuccess($"¡Factura {facturaObj.NroFactura} procesada exitosamente!\nTotal: ${facturaObj.TotalFactura:N0}", "Facturación Exitosa");
             Close();
         }
     }
@@ -698,8 +693,7 @@ namespace GestorInventario.Forms
             cardFiltros.Controls.Add(lblHeader);
 
             // Fila 1: Seleccione Informe | Ordenar por
-            var lblSelInf = new Label { Text = "SELECCIONE INFORME *", Font = AppFonts.SmallBold, ForeColor = AppColors.TextSecondary, Location = new Point(20, 50), AutoSize = true };
-            cboSeleccioneInforme = new ComboBox { Location = new Point(20, 72), Size = new Size(340, 32), Font = AppFonts.Body, DropDownStyle = ComboBoxStyle.DropDownList };
+            UIHelper.CreateRoundedComboBox(cardFiltros, "SELECCIONE INFORME *", out cboSeleccioneInforme, 20, 50, 340, 36);
             cboSeleccioneInforme.Items.AddRange(new[] {
                 "Informe Consolidado de Ventas y Facturación",
                 "Ranking de Productos Más Vendidos",
@@ -708,30 +702,21 @@ namespace GestorInventario.Forms
                 "Estado Actual de Existencias y Stock Crítico"
             });
             cboSeleccioneInforme.SelectedIndex = 0;
-            cardFiltros.Controls.Add(lblSelInf);
-            cardFiltros.Controls.Add(cboSeleccioneInforme);
 
-            var lblOrd = new Label { Text = "Ordenar por", Font = AppFonts.SmallBold, ForeColor = AppColors.TextSecondary, Location = new Point(380, 50), AutoSize = true };
-            cboOrdenarPor = new ComboBox { Location = new Point(380, 72), Size = new Size(200, 32), Font = AppFonts.Body, DropDownStyle = ComboBoxStyle.DropDownList };
+            UIHelper.CreateRoundedComboBox(cardFiltros, "Ordenar por", out cboOrdenarPor, 380, 50, 200, 36);
             cboOrdenarPor.Items.AddRange(new[] { "Fecha (Más reciente)", "Monto Total (Mayor a menor)", "Cliente / Nombre (A-Z)", "Cantidad Vendida" });
             cboOrdenarPor.SelectedIndex = 0;
-            cardFiltros.Controls.Add(lblOrd);
-            cardFiltros.Controls.Add(cboOrdenarPor);
 
             // Fila 2: Fechas y Radios
-            var lblFecIni = new Label { Text = "Fecha Inicial", Font = AppFonts.SmallBold, ForeColor = AppColors.TextSecondary, Location = new Point(20, 115), AutoSize = true };
-            dtpFechaInicial = new DateTimePicker { Location = new Point(20, 135), Size = new Size(160, 32), Font = AppFonts.Body, Format = DateTimePickerFormat.Short, Value = DateTime.Today.AddDays(-30) };
-            cardFiltros.Controls.Add(lblFecIni);
-            cardFiltros.Controls.Add(dtpFechaInicial);
+            UIHelper.CreateRoundedDateTimePicker(cardFiltros, "Fecha Inicial", out dtpFechaInicial, 20, 115, 160, 36);
+            dtpFechaInicial.Value = DateTime.Today.AddDays(-30);
 
-            var lblFecFin = new Label { Text = "Fecha Final", Font = AppFonts.SmallBold, ForeColor = AppColors.TextSecondary, Location = new Point(195, 115), AutoSize = true };
-            dtpFechaFinal = new DateTimePicker { Location = new Point(195, 135), Size = new Size(160, 32), Font = AppFonts.Body, Format = DateTimePickerFormat.Short, Value = DateTime.Today };
-            cardFiltros.Controls.Add(lblFecFin);
-            cardFiltros.Controls.Add(dtpFechaFinal);
+            UIHelper.CreateRoundedDateTimePicker(cardFiltros, "Fecha Final", out dtpFechaFinal, 195, 115, 160, 36);
+            dtpFechaFinal.Value = DateTime.Today;
 
             // Radios Formato
-            rdoResumido = new RadioButton { Text = "Resumido", Location = new Point(380, 138), AutoSize = true, Font = AppFonts.Body, Checked = true };
-            rdoDetallado = new RadioButton { Text = "Detallado", Location = new Point(480, 138), AutoSize = true, Font = AppFonts.Body };
+            rdoResumido = new RadioButton { Text = "Resumido", Location = new Point(380, 148), AutoSize = true, Font = AppFonts.Body, ForeColor = AppColors.TextPrimary, Checked = true };
+            rdoDetallado = new RadioButton { Text = "Detallado", Location = new Point(480, 148), AutoSize = true, Font = AppFonts.Body, ForeColor = AppColors.TextPrimary };
             cardFiltros.Controls.Add(rdoResumido);
             cardFiltros.Controls.Add(rdoDetallado);
 
@@ -776,8 +761,14 @@ namespace GestorInventario.Forms
             };
             UIHelper.StyleDataGridView(dgvInforme);
             cardGrid.Controls.Add(dgvInforme);
+            UIHelper.BindEmptyState(dgvInforme, "No hay datos para este informe.", "📊");
 
             Controls.Add(cardGrid);
+
+            UIHelper.BindFillWidth(this, cardFiltros, 20);
+            UIHelper.BindFillWidth(this, cardGrid, 20);
+            UIHelper.BindFillHeight(this, cardGrid, 24);
+
             ResumeLayout();
         }
 
@@ -840,7 +831,7 @@ namespace GestorInventario.Forms
         {
             if (dgvInforme.Rows.Count == 0)
             {
-                MessageBox.Show("No hay datos para exportar.", "Sin datos", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ModernMessageBox.ShowInfo("No hay datos para exportar.", "Sin datos");
                 return;
             }
             try
@@ -866,11 +857,11 @@ namespace GestorInventario.Forms
                 }
 
                 System.IO.File.WriteAllText(sfd.FileName, sb.ToString(), System.Text.Encoding.UTF8);
-                MessageBox.Show("Informe exportado con éxito a CSV.", "Éxito", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ModernMessageBox.ShowSuccess("Informe exportado con éxito a CSV.");
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error al exportar: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.ShowError($"Error al exportar: {ex.Message}");
             }
         }
     }

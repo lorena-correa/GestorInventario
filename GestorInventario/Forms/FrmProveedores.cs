@@ -33,43 +33,45 @@ namespace GestorInventario.Forms
             var toolbarCard = new CardPanel
             {
                 Location = new Point(24, 16),
-                Size = new Size(1140, 72),
-                Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right
+                Size = new Size(1140, 64),
+                Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right,
+                Padding = new Padding(0, 13, 20, 13)
             };
 
-            var lblTitulo = new Label
+            var lblIcono = new Label
             {
-                Text = "🏢  ADMINISTRACIÓN DE PROVEEDORES",
-                Font = AppFonts.Heading,
-                ForeColor = AppColors.TextPrimary,
-                Location = new Point(16, 12),
-                AutoSize = true,
+                Text = "🏢",
+                Font = new Font("Segoe UI Emoji", 16f),
+                Location = new Point(20, 14),
+                Size = new Size(36, 36),
+                TextAlign = ContentAlignment.MiddleCenter,
                 BackColor = Color.Transparent
             };
-            toolbarCard.Controls.Add(lblTitulo);
+            toolbarCard.Controls.Add(lblIcono);
 
             var lblSubtitulo = new Label
             {
                 Text = "Gestión de aliados comerciales, contactos y suministros",
                 Font = AppFonts.Small,
                 ForeColor = AppColors.TextSecondary,
-                Location = new Point(18, 42),
-                AutoSize = true,
+                Location = new Point(64, 24),
+                Size = new Size(400, 18),
+                AutoEllipsis = true,
                 BackColor = Color.Transparent
             };
             toolbarCard.Controls.Add(lblSubtitulo);
 
-            // Contenedor de acciones alineado a la derecha
+            // Contenedor de acciones alineado a la derecha (Dock, no Anchor con
+            // coordenada fija: así nunca se descuadra al redimensionar la tarjeta)
             var actionsPanel = new FlowLayoutPanel
             {
                 FlowDirection = FlowDirection.LeftToRight,
                 WrapContents = false,
                 AutoSize = true,
-                Location = new Point(480, 16),
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                BackColor = Color.Transparent,
-                Height = 44
+                Dock = DockStyle.Right,
+                BackColor = Color.Transparent
             };
+            UIHelper.BindFillWidthUntil(this, lblSubtitulo, actionsPanel, 16);
 
             UIHelper.CreateSearchInput(actionsPanel, out txtBuscar, 0, 0, 220, 38, "Buscar proveedor...");
             txtBuscar.TextChanged += (s, e) => LoadData(txtBuscar.Text);
@@ -79,7 +81,7 @@ namespace GestorInventario.Forms
             btnNuevo.Click += (s, e) => OpenForm(null);
             actionsPanel.Controls.Add(btnNuevo);
 
-            var btnEditar = UIHelper.CreateSecondaryButton("✏️ EDITAR", new Size(95, 38), new Point(0, 0));
+            var btnEditar = UIHelper.CreateEditButton("✏️ EDITAR", new Size(95, 38), new Point(0, 0));
             btnEditar.Margin = new Padding(6, 0, 0, 0);
             btnEditar.Click += (s, e) => { if (_selected == null) { ShowWarn(); return; } OpenForm(_selected); };
             actionsPanel.Controls.Add(btnEditar);
@@ -92,7 +94,7 @@ namespace GestorInventario.Forms
             toolbarCard.Controls.Add(actionsPanel);
             Controls.Add(toolbarCard);
 
-            var card = new CardPanel { Location = new Point(24, 100), Size = new Size(1140, 520), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom };
+            var card = new CardPanel { Location = new Point(24, 92), Size = new Size(1140, 520), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom };
             dgvProveedores = new DataGridView { Dock = DockStyle.Fill };
             UIHelper.StyleDataGridView(dgvProveedores);
             dgvProveedores.Columns.Add("Nombre", "Nombre");
@@ -106,7 +108,13 @@ namespace GestorInventario.Forms
             };
             dgvProveedores.CellDoubleClick += (s, e) => { if (_selected != null) OpenForm(_selected); };
             card.Controls.Add(dgvProveedores);
+            UIHelper.BindEmptyState(dgvProveedores, "No hay proveedores registrados todavía.");
             Controls.Add(card);
+
+            UIHelper.BindFillWidth(this, toolbarCard, 24);
+            UIHelper.BindFillWidth(this, card, 24);
+            UIHelper.BindFillHeight(this, card, 24);
+
             ResumeLayout();
         }
 
@@ -129,8 +137,7 @@ namespace GestorInventario.Forms
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error al cargar proveedores: {ex.Message}",
-                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.ShowError($"Error al cargar proveedores: {ex.Message}");
             }
         }
 
@@ -143,27 +150,23 @@ namespace GestorInventario.Forms
 
         private void DeleteSelected()
         {
-            if (MessageBox.Show($"¿Eliminar proveedor \"{_selected!.Nombre}\"?",
-                "Confirmar", MessageBoxButtons.YesNo,
-                MessageBoxIcon.Warning) == DialogResult.Yes)
+            if (ModernMessageBox.ShowConfirm($"¿Eliminar proveedor \"{_selected!.Nombre}\"?", "Confirmar", "Eliminar") == DialogResult.Yes)
             {
                 try
                 {
                     _service.Eliminar(_selected.Id);
                     _selected = null;
                     LoadData();
-                    MessageBox.Show("Proveedor eliminado correctamente.",
-                        "Éxito", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    ModernMessageBox.ShowSuccess("Proveedor eliminado correctamente.");
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"Error al eliminar: {ex.Message}",
-                        "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    ModernMessageBox.ShowError($"Error al eliminar: {ex.Message}");
                 }
             }
         }
 
-        private void ShowWarn() => MessageBox.Show("Selecciona un proveedor de la lista.", "Selección requerida", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        private void ShowWarn() => ModernMessageBox.ShowInfo("Selecciona un proveedor de la lista.", "Selección requerida");
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -233,16 +236,14 @@ namespace GestorInventario.Forms
         {
             if (string.IsNullOrWhiteSpace(txtNombre.Text))
             {
-                MessageBox.Show("El nombre del proveedor es obligatorio.",
-                    "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.ShowWarning("El nombre del proveedor es obligatorio.", "Validación");
                 txtNombre.Focus();
                 return;
             }
 
             if (!string.IsNullOrEmpty(txtCorreo.Text) && !txtCorreo.Text.Contains('@'))
             {
-                MessageBox.Show("El correo electrónico no es válido.",
-                    "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.ShowWarning("El correo electrónico no es válido.", "Validación");
                 txtCorreo.Focus();
                 return;
             }
@@ -257,15 +258,13 @@ namespace GestorInventario.Forms
             try
             {
                 _service.Guardar(p);
-                MessageBox.Show("Proveedor guardado correctamente.",
-                    "Éxito", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ModernMessageBox.ShowSuccess("Proveedor guardado correctamente.");
                 Saved?.Invoke();
                 Close();
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "Error al guardar",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.ShowError(ex.Message, "Error al guardar");
             }
         }
     }

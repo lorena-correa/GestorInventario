@@ -70,11 +70,10 @@ namespace GestorInventario.Forms
             var lblFilter = new Label { Text = "Filtrar por estado:", Font = AppFonts.BodyBold, ForeColor = AppColors.TextPrimary, Location = new Point(24, 144), AutoSize = true, BackColor = Color.Transparent };
             Controls.Add(lblFilter);
 
-            var cbFilter = new ComboBox { Location = new Point(160, 140), Size = new Size(180, 36), Font = AppFonts.Body, FlatStyle = FlatStyle.Flat, DropDownStyle = ComboBoxStyle.DropDownList };
+            UIHelper.CreateRoundedComboBox(this, "", out var cbFilter, 160, 140, 180, 36);
             cbFilter.Items.AddRange(new[] { "Todos", "Stock Crítico", "Stock Normal" });
             cbFilter.SelectedIndex = 0;
             cbFilter.SelectedIndexChanged += (s, e) => LoadInventario(cbFilter.SelectedItem?.ToString() ?? "Todos");
-            Controls.Add(cbFilter);
 
             // Table
             var tableCard = new CardPanel { Location = new Point(24, 180), Size = new Size(1140, 480), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom };
@@ -89,7 +88,11 @@ namespace GestorInventario.Forms
             dgvInventario.Columns.Add("Proveedor", "Proveedor");
             dgvInventario.Columns.Add("Estado", "Estado Stock");
             tableCard.Controls.Add(dgvInventario);
+            UIHelper.BindEmptyState(dgvInventario, "No hay productos que coincidan con el filtro.");
             Controls.Add(tableCard);
+
+            UIHelper.BindFillWidth(this, tableCard, 24);
+            UIHelper.BindFillHeight(this, tableCard, 24);
 
             LoadInventario("Todos");
             ResumeLayout();
@@ -129,8 +132,7 @@ namespace GestorInventario.Forms
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error al cargar inventario: {ex.Message}",
-                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.ShowError($"Error al cargar inventario: {ex.Message}");
             }
         }
     }
@@ -161,20 +163,19 @@ namespace GestorInventario.Forms
             var lblTipo = new Label { Text = "Tipo:", Font = AppFonts.BodyBold, ForeColor = AppColors.TextPrimary, Location = new Point(16, 22), AutoSize = true, BackColor = Color.Transparent };
             filterCard.Controls.Add(lblTipo);
 
-            cboTipo = new ComboBox { Location = new Point(60, 18), Size = new Size(140, 36), Font = AppFonts.Body, FlatStyle = FlatStyle.Flat, DropDownStyle = ComboBoxStyle.DropDownList };
+            UIHelper.CreateRoundedComboBox(filterCard, "", out cboTipo, 60, 18, 140, 36);
             cboTipo.Items.AddRange(new[] { "Todos", "Entrada", "Salida" });
             cboTipo.SelectedIndex = 0;
-            filterCard.Controls.Add(cboTipo);
 
             var lblDesde = new Label { Text = "Desde:", Font = AppFonts.BodyBold, ForeColor = AppColors.TextPrimary, Location = new Point(220, 22), AutoSize = true, BackColor = Color.Transparent };
             filterCard.Controls.Add(lblDesde);
-            dtDesde = new DateTimePicker { Location = new Point(275, 18), Size = new Size(140, 36), Font = AppFonts.Body, Format = DateTimePickerFormat.Short, Value = DateTime.Today.AddDays(-30) };
-            filterCard.Controls.Add(dtDesde);
+            UIHelper.CreateRoundedDateTimePicker(filterCard, "", out dtDesde, 275, 18, 140, 36);
+            dtDesde.Value = DateTime.Today.AddDays(-30);
 
             var lblHasta = new Label { Text = "Hasta:", Font = AppFonts.BodyBold, ForeColor = AppColors.TextPrimary, Location = new Point(435, 22), AutoSize = true, BackColor = Color.Transparent };
             filterCard.Controls.Add(lblHasta);
-            dtHasta = new DateTimePicker { Location = new Point(485, 18), Size = new Size(140, 36), Font = AppFonts.Body, Format = DateTimePickerFormat.Short, Value = DateTime.Today };
-            filterCard.Controls.Add(dtHasta);
+            UIHelper.CreateRoundedDateTimePicker(filterCard, "", out dtHasta, 485, 18, 140, 36);
+            dtHasta.Value = DateTime.Today;
 
             var btnFiltrar = UIHelper.CreatePrimaryButton("🔍 Filtrar", new Size(105, 38), new Point(650, 15));
             btnFiltrar.Click += (s, e) => LoadData();
@@ -197,7 +198,12 @@ namespace GestorInventario.Forms
             dgvMovimientos.Columns.Add("Observacion", "Observación");
             dgvMovimientos.Columns.Add("Usuario", "Usuario");
             tableCard.Controls.Add(dgvMovimientos);
+            UIHelper.BindEmptyState(dgvMovimientos, "No hay movimientos en el rango seleccionado.");
             Controls.Add(tableCard);
+
+            UIHelper.BindFillWidth(this, filterCard, 24);
+            UIHelper.BindFillWidth(this, tableCard, 24);
+            UIHelper.BindFillHeight(this, tableCard, 24);
 
             LoadData();
             ResumeLayout();
@@ -237,8 +243,7 @@ namespace GestorInventario.Forms
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error al cargar historial: {ex.Message}",
-                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.ShowError($"Error al cargar historial: {ex.Message}");
             }
         }
 
@@ -271,13 +276,11 @@ namespace GestorInventario.Forms
 
                 System.IO.File.WriteAllText(sfd.FileName, sb.ToString(),
                     System.Text.Encoding.UTF8);
-                MessageBox.Show("Historial exportado correctamente.", "Éxito",
-                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ModernMessageBox.ShowSuccess("Historial exportado correctamente.");
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error al exportar: {ex.Message}",
-                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.ShowError($"Error al exportar: {ex.Message}");
             }
         }
     }
@@ -303,23 +306,23 @@ namespace GestorInventario.Forms
             SuspendLayout();
 
             // Banner de advertencia
-            var banner = new Panel { Location = new Point(24, 16), Size = new Size(1140, 72), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right, BackColor = Color.FromArgb(254, 243, 199) };
+            var banner = new Panel { Location = new Point(24, 16), Size = new Size(1140, 72), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right, BackColor = AppColors.WarningLight };
             banner.Paint += (s, e) =>
             {
                 var g = e.Graphics;
                 g.SmoothingMode = SmoothingMode.AntiAlias;
                 using var path = UIHelper.RoundedRect(new Rectangle(0, 0, banner.Width - 1, banner.Height - 1), 10);
-                using var bg = new SolidBrush(Color.FromArgb(254, 243, 199));
+                using var bg = new SolidBrush(AppColors.WarningLight);
                 g.FillPath(bg, path);
                 using var border = new Pen(AppColors.Warning, 1);
                 g.DrawPath(border, path);
                 using var ef = new Font("Segoe UI Emoji", 22f);
                 g.DrawString("⚠️", ef, Brushes.Black, new Point(16, 20));
                 using var tf = AppFonts.BodyBold;
-                using var tb = new SolidBrush(ColorTranslator.FromHtml("#92400E"));
+                using var tb = new SolidBrush(AppColors.WarningTextStrong);
                 g.DrawString("Atención: Hay productos con stock por debajo del mínimo requerido.", tf, tb, new Point(60, 14));
                 using var sf2 = AppFonts.Body;
-                using var sb2 = new SolidBrush(ColorTranslator.FromHtml("#B45309"));
+                using var sb2 = new SolidBrush(AppColors.WarningTextMedium);
                 g.DrawString("Revisa y realiza pedidos a proveedores para reabastecer el inventario.", sf2, sb2, new Point(60, 36));
             };
             Controls.Add(banner);
@@ -351,7 +354,12 @@ namespace GestorInventario.Forms
             dgv.Columns.Add("Fecha", "Generada");
             dgv.Columns["AlertaId"].Visible = false;
             tableCard.Controls.Add(dgv);
+            UIHelper.BindEmptyState(dgv, "Sin alertas activas por ahora.", "✅");
             Controls.Add(tableCard);
+
+            UIHelper.BindFillWidth(this, banner, 24);
+            UIHelper.BindFillWidth(this, tableCard, 24);
+            UIHelper.BindFillHeight(this, tableCard, 24);
 
             LoadAlertas();
             ResumeLayout();
@@ -401,8 +409,7 @@ namespace GestorInventario.Forms
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error al cargar alertas: {ex.Message}",
-                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.ShowError($"Error al cargar alertas: {ex.Message}");
             }
         }
 
@@ -410,23 +417,21 @@ namespace GestorInventario.Forms
         {
             if (dgv.SelectedRows.Count == 0)
             {
-                MessageBox.Show("Selecciona una alerta.", "Selección requerida",
-                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ModernMessageBox.ShowInfo("Selecciona una alerta.", "Selección requerida");
                 return;
             }
             int alertaId = Convert.ToInt32(dgv.SelectedRows[0].Cells["AlertaId"].Value);
-            if (alertaId == 0) { MessageBox.Show("Esta alerta no está registrada en BD.", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
+            if (alertaId == 0) { ModernMessageBox.ShowInfo("Esta alerta no está registrada en BD."); return; }
 
             try
             {
                 _alertService.Resolver(alertaId);
-                MessageBox.Show("Alerta marcada como resuelta.", "Éxito",
-                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ModernMessageBox.ShowSuccess("Alerta marcada como resuelta.");
                 LoadAlertas();
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.ShowError(ex.Message);
             }
         }
 
@@ -434,23 +439,21 @@ namespace GestorInventario.Forms
         {
             if (dgv.SelectedRows.Count == 0)
             {
-                MessageBox.Show("Selecciona una alerta.", "Selección requerida",
-                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ModernMessageBox.ShowInfo("Selecciona una alerta.", "Selección requerida");
                 return;
             }
             int alertaId = Convert.ToInt32(dgv.SelectedRows[0].Cells["AlertaId"].Value);
-            if (alertaId == 0) { MessageBox.Show("Esta alerta no está registrada en BD.", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
+            if (alertaId == 0) { ModernMessageBox.ShowInfo("Esta alerta no está registrada en BD."); return; }
 
             try
             {
                 _alertService.Ignorar(alertaId);
-                MessageBox.Show("Alerta ignorada.", "Éxito",
-                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ModernMessageBox.ShowSuccess("Alerta ignorada.");
                 LoadAlertas();
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.ShowError(ex.Message);
             }
         }
     }

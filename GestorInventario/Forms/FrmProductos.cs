@@ -28,46 +28,50 @@ namespace GestorInventario.Forms
             SuspendLayout();
 
             // ── Toolbar ─────────────────────────────────────────────────
+            // El título del módulo ya se muestra en la barra superior, así que
+            // aquí solo dejamos un ícono de referencia y la fila de acciones.
             var toolbarCard = new CardPanel
             {
                 Location = new Point(24, 16),
-                Size = new Size(1140, 72),
-                Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right
+                Size = new Size(1140, 64),
+                Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right,
+                Padding = new Padding(0, 13, 20, 13)
             };
 
-            var lblTitulo = new Label
+            var lblIcono = new Label
             {
-                Text = "📦  ADMINISTRACIÓN DE PRODUCTOS",
-                Font = AppFonts.Heading,
-                ForeColor = AppColors.TextPrimary,
-                Location = new Point(16, 12),
-                AutoSize = true,
+                Text = "📦",
+                Font = new Font("Segoe UI Emoji", 16f),
+                Location = new Point(20, 14),
+                Size = new Size(36, 36),
+                TextAlign = ContentAlignment.MiddleCenter,
                 BackColor = Color.Transparent
             };
-            toolbarCard.Controls.Add(lblTitulo);
+            toolbarCard.Controls.Add(lblIcono);
 
             var lblSubtitulo = new Label
             {
                 Text = "Catálogo general, control de precios de compra/venta y niveles de stock",
                 Font = AppFonts.Small,
                 ForeColor = AppColors.TextSecondary,
-                Location = new Point(18, 42),
-                AutoSize = true,
+                Location = new Point(64, 24),
+                Size = new Size(400, 18),
+                AutoEllipsis = true,
                 BackColor = Color.Transparent
             };
             toolbarCard.Controls.Add(lblSubtitulo);
 
-            // Contenedor de acciones alineado a la derecha
+            // Contenedor de acciones alineado a la derecha (Dock, no Anchor con
+            // coordenada fija: así nunca se descuadra al redimensionar la tarjeta)
             var actionsPanel = new FlowLayoutPanel
             {
                 FlowDirection = FlowDirection.LeftToRight,
                 WrapContents = false,
                 AutoSize = true,
-                Location = new Point(480, 16),
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                BackColor = Color.Transparent,
-                Height = 44
+                Dock = DockStyle.Right,
+                BackColor = Color.Transparent
             };
+            UIHelper.BindFillWidthUntil(this, lblSubtitulo, actionsPanel, 16);
 
             UIHelper.CreateSearchInput(actionsPanel, out txtBuscar, 0, 0, 220, 38, "Buscar producto...");
             txtBuscar.TextChanged += (s, e) => LoadData(txtBuscar.Text);
@@ -77,7 +81,7 @@ namespace GestorInventario.Forms
             btnAgregar.Click += (s, e) => OpenProductForm(null);
             actionsPanel.Controls.Add(btnAgregar);
 
-            var btnEditar = UIHelper.CreateSecondaryButton("✏️ EDITAR", new Size(95, 38), new Point(0, 0));
+            var btnEditar = UIHelper.CreateEditButton("✏️ EDITAR", new Size(95, 38), new Point(0, 0));
             btnEditar.Margin = new Padding(6, 0, 0, 0);
             btnEditar.Click += (s, e) =>
             {
@@ -101,7 +105,7 @@ namespace GestorInventario.Forms
             // ── DataGridView card ────────────────────────────────────────
             var tableCard = new CardPanel
             {
-                Location = new Point(24, 100),
+                Location = new Point(24, 92),
                 Size = new Size(1140, 520),
                 Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom
             };
@@ -120,7 +124,12 @@ namespace GestorInventario.Forms
             };
 
             tableCard.Controls.Add(dgvProductos);
+            UIHelper.BindEmptyState(dgvProductos, "No hay productos registrados todavía.");
             Controls.Add(tableCard);
+
+            UIHelper.BindFillWidth(this, toolbarCard, 24);
+            UIHelper.BindFillWidth(this, tableCard, 24);
+            UIHelper.BindFillHeight(this, tableCard, 44);
 
             // Row count label
             var lblCount = new Label
@@ -186,8 +195,7 @@ namespace GestorInventario.Forms
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error al cargar productos: {ex.Message}",
-                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.ShowError($"Error al cargar productos: {ex.Message}");
             }
         }
 
@@ -200,28 +208,24 @@ namespace GestorInventario.Forms
 
         private void ConfirmDelete()
         {
-            if (MessageBox.Show($"¿Eliminar el producto \"{_selectedProduct!.Nombre}\"?",
-                "Confirmar eliminación", MessageBoxButtons.YesNo,
-                MessageBoxIcon.Warning) == DialogResult.Yes)
+            if (ModernMessageBox.ShowConfirm($"¿Eliminar el producto \"{_selectedProduct!.Nombre}\"?", "Confirmar eliminación", "Eliminar") == DialogResult.Yes)
             {
                 try
                 {
                     _service.Eliminar(_selectedProduct.Id);
                     _selectedProduct = null;
                     LoadData();
-                    MessageBox.Show("Producto eliminado correctamente.",
-                        "Éxito", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    ModernMessageBox.ShowSuccess("Producto eliminado correctamente.");
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"Error al eliminar: {ex.Message}",
-                        "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    ModernMessageBox.ShowError($"Error al eliminar: {ex.Message}");
                 }
             }
         }
 
         private void ShowSelectWarning() =>
-            MessageBox.Show("Selecciona un producto de la lista.", "Selección requerida", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            ModernMessageBox.ShowInfo("Selecciona un producto de la lista.", "Selección requerida");
     }
 
     // Alias para la guía

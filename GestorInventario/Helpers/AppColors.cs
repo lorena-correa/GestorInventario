@@ -26,15 +26,20 @@ namespace GestorInventario.Helpers
         public static readonly Color Warning = ColorTranslator.FromHtml("#F59E0B");
         public static readonly Color Danger = ColorTranslator.FromHtml("#EF4444");
         public static readonly Color DangerHover = ColorTranslator.FromHtml("#DC2626");
+
+        // Botones de eliminar/borrar: mismo tono rojo pero más claro que el usado
+        // para texto/íconos de estado (que necesitan más contraste para leerse).
+        public static readonly Color DangerButton = ColorTranslator.FromHtml("#F87171");
+        public static readonly Color DangerButtonHover = ColorTranslator.FromHtml("#EF4444");
         public static readonly Color Info = ColorTranslator.FromHtml("#3B82F6");
 
         // Borders
         public static readonly Color Border = ColorTranslator.FromHtml("#E2E8F0");
         public static readonly Color BorderFocus = ColorTranslator.FromHtml("#7B61FF");
 
-        // Table DataGridView
-        public static readonly Color TableHeader = ColorTranslator.FromHtml("#F1F5F9");
-        public static readonly Color TableHeaderText = ColorTranslator.FromHtml("#475569");
+        // Table DataGridView — encabezado en el morado de marca (no un azul suelto)
+        public static readonly Color TableHeader = Primary;
+        public static readonly Color TableHeaderText = Color.White;
         public static readonly Color TableRowAlt = ColorTranslator.FromHtml("#F8FAFC");
 
         // Status Backgrounds (Badges)
@@ -47,5 +52,16 @@ namespace GestorInventario.Helpers
         public static readonly Color TopBar = Color.White;
         public static readonly Color TopBarBorder = ColorTranslator.FromHtml("#E2E8F0");
         public static readonly Color ModalHeader = ColorTranslator.FromHtml("#7B61FF");
+
+        // Acento secundario (variante morada, tarjetas de métricas)
+        public static readonly Color AccentPurple = ColorTranslator.FromHtml("#8B5CF6");
+
+        // Texto sobre fondos de advertencia claros (banners)
+        public static readonly Color WarningTextStrong = ColorTranslator.FromHtml("#92400E");
+        public static readonly Color WarningTextMedium = ColorTranslator.FromHtml("#B45309");
+
+        // Superficies neutras
+        public static readonly Color SurfaceMuted = ColorTranslator.FromHtml("#F8F9FD");
+        public static readonly Color ReadOnlyBackground = ColorTranslator.FromHtml("#F5F7FA");
     }
 }

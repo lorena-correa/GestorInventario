@@ -7,6 +7,65 @@ namespace GestorInventario.Helpers
 {
     public static class UIHelper
     {
+        // ── Responsive Binding: mantiene un control ajustado al tamaño del formulario ──
+        // Los formularios de la app posicionan sus tarjetas con Location/Size fijos porque
+        // el Anchor de WinForms calcula su referencia en el momento en que el control se
+        // agrega al formulario (cuando este aún tiene su tamaño por defecto, antes de
+        // insertarse en el panel de contenido). Por eso no basta con Anchor: hay que
+        // recalcular el tamaño explícitamente cada vez que el formulario cambia de tamaño.
+        //
+        // IMPORTANTE: no se ejecuta de inmediato. Estos formularios se construyen
+        // ANTES de insertarse en el panel de contenido principal (todavía tienen el
+        // tamaño por defecto, pequeño, de WinForms). Si recalculáramos ya, el control
+        // se encogería de golpe a ese tamaño provisional y descuadraría otros controles
+        // anclados dentro de él (por eso el botón de acciones llegó a superponerse con
+        // el título). Basta con esperar al primer Resize real, que ocurre apenas el
+        // formulario se acopla (Dock = Fill) al panel de contenido, antes de mostrarse.
+        public static void BindFillWidth(Form form, Control control, int rightMargin, int minWidth = 400)
+        {
+            form.Resize += (s, e) => control.Width = Math.Max(minWidth, form.ClientSize.Width - control.Left - rightMargin);
+        }
+
+        // Igual que BindFillWidth, pero el control se estira solo hasta el borde
+        // izquierdo de OTRO control (por ejemplo, una descripción que no debe
+        // invadir la fila de botones de acciones, sin importar cuánto se achique
+        // esa fila de botones al redimensionar la ventana).
+        public static void BindFillWidthUntil(Form form, Control control, Control stopBefore, int gap, int minWidth = 60)
+        {
+            form.Resize += (s, e) => control.Width = Math.Max(minWidth, stopBefore.Left - control.Left - gap);
+        }
+
+        public static void BindFillHeight(Form form, Control control, int bottomMargin, int minHeight = 150)
+        {
+            form.Resize += (s, e) => control.Height = Math.Max(minHeight, form.ClientSize.Height - control.Top - bottomMargin);
+        }
+
+        // ── Estado vacío para tablas ─────────────────────────────────────
+        // Superpone un mensaje centrado sobre el DataGridView cuando no tiene
+        // filas, en vez de dejarlo en blanco. Debe llamarse DESPUÉS de agregar
+        // el grid a su contenedor (necesita conocer dgv.Parent).
+        public static void BindEmptyState(DataGridView dgv, string message, string icon = "🗂️")
+        {
+            if (dgv.Parent == null) return;
+
+            var placeholder = new Label
+            {
+                Text = $"{icon}  {message}",
+                Font = AppFonts.Body,
+                ForeColor = AppColors.TextSecondary,
+                TextAlign = ContentAlignment.MiddleCenter,
+                Dock = DockStyle.Fill,
+                BackColor = Color.White,
+                Visible = dgv.RowCount == 0
+            };
+            dgv.Parent.Controls.Add(placeholder);
+            placeholder.BringToFront();
+
+            void UpdateVisibility() => placeholder.Visible = dgv.RowCount == 0;
+            dgv.RowsAdded += (s, e) => UpdateVisibility();
+            dgv.RowsRemoved += (s, e) => UpdateVisibility();
+        }
+
         // ── Rounded Rectangle ──────────────────────────────────────────
         public static GraphicsPath RoundedRect(Rectangle bounds, int radius)
         {
@@ -59,6 +118,11 @@ namespace GestorInventario.Helpers
             // Column headers unificados en toda la aplicación
             dgv.ColumnHeadersDefaultCellStyle.BackColor = AppColors.TableHeader;
             dgv.ColumnHeadersDefaultCellStyle.ForeColor = AppColors.TableHeaderText;
+            // Sin esto, WinForms usa un azul de sistema por defecto para el estado
+            // "seleccionado" del encabezado (al pasar el mouse o hacer clic para
+            // ordenar). Se iguala al color normal para que no cambie nunca.
+            dgv.ColumnHeadersDefaultCellStyle.SelectionBackColor = AppColors.TableHeader;
+            dgv.ColumnHeadersDefaultCellStyle.SelectionForeColor = AppColors.TableHeaderText;
             dgv.ColumnHeadersDefaultCellStyle.Font = AppFonts.SmallBold;
             dgv.ColumnHeadersDefaultCellStyle.Padding = new Padding(12, 0, 0, 0);
             dgv.ColumnHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleLeft;
@@ -115,6 +179,7 @@ namespace GestorInventario.Helpers
         }
 
         // ── Create Secondary Button (Radius 8px, Blanco con Borde Suave) ──
+        // Para acciones neutras: cancelar, salir, actualizar/exportar, etc.
         public static Components.RoundedButton CreateSecondaryButton(string text, Size size, Point location, int radius = 8)
         {
             return new Components.RoundedButton
@@ -131,6 +196,26 @@ namespace GestorInventario.Helpers
             };
         }
 
+        // ── Create Edit Button (Radius 8px, misma gama morada que el primario) ──
+        // Para acciones de editar/modificar/ver detalle: mismo tono que "Nuevo"
+        // pero en versión suave (contorno), para diferenciar peso visual sin
+        // salirse de la gama de colores del botón primario.
+        public static Components.RoundedButton CreateEditButton(string text, Size size, Point location, int radius = 8)
+        {
+            return new Components.RoundedButton
+            {
+                Text = text,
+                Size = size,
+                Location = location,
+                ButtonColor = Color.White,
+                HoverColor = AppColors.PrimaryLight,
+                TextColor = AppColors.Primary,
+                BorderColor = AppColors.Primary,
+                Font = AppFonts.Button,
+                Radius = radius
+            };
+        }
+
         // ── Create Danger Button (Radius 8px, Rojo Alerta) ───────────────
         public static Components.RoundedButton CreateDangerButton(string text, Size size, Point location, int radius = 8)
         {
@@ -139,8 +224,8 @@ namespace GestorInventario.Helpers
                 Text = text,
                 Size = size,
                 Location = location,
-                ButtonColor = AppColors.Danger,
-                HoverColor = AppColors.DangerHover,
+                ButtonColor = AppColors.DangerButton,
+                HoverColor = AppColors.DangerButtonHover,
                 TextColor = Color.White,
                 Font = AppFonts.Button,
                 Radius = radius
@@ -265,7 +350,7 @@ namespace GestorInventario.Helpers
                 g.SmoothingMode = SmoothingMode.AntiAlias;
                 var rect = new Rectangle(0, 0, container.Width - 1, container.Height - 1);
                 using var path = RoundedRect(rect, 8);
-                using var bgBrush = new SolidBrush(readOnly ? Color.FromArgb(245, 247, 250) : Color.White);
+                using var bgBrush = new SolidBrush(readOnly ? AppColors.ReadOnlyBackground : Color.White);
                 g.FillPath(bgBrush, path);
 
                 Color borderCol = isFocused ? AppColors.BorderFocus : AppColors.Border;
@@ -280,7 +365,7 @@ namespace GestorInventario.Helpers
                 Size = new Size(width - 20, multiline ? height - 16 : 22),
                 Font = AppFonts.Body,
                 ForeColor = AppColors.TextPrimary,
-                BackColor = readOnly ? Color.FromArgb(245, 247, 250) : Color.White,
+                BackColor = readOnly ? AppColors.ReadOnlyBackground : Color.White,
                 BorderStyle = BorderStyle.None,
                 Multiline = multiline,
                 ReadOnly = readOnly
@@ -344,6 +429,62 @@ namespace GestorInventario.Helpers
             };
 
             container.Controls.Add(cbo);
+            parent.Controls.Add(container);
+            return container;
+        }
+
+        // ── Create Rounded DateTimePicker (8px radius) ──────────────────
+        public static Panel CreateRoundedDateTimePicker(Control parent, string labelText, out DateTimePicker dtp, int x, int y, int width, int height = 38, DateTimePickerFormat format = DateTimePickerFormat.Short, bool showCheckBox = false)
+        {
+            if (!string.IsNullOrEmpty(labelText))
+            {
+                var lbl = new Label
+                {
+                    Text = labelText,
+                    Font = AppFonts.SmallBold,
+                    ForeColor = AppColors.TextSecondary,
+                    Location = new Point(x, y),
+                    AutoSize = true,
+                    BackColor = Color.Transparent
+                };
+                parent.Controls.Add(lbl);
+                y += 20;
+            }
+
+            var container = new Panel
+            {
+                Location = new Point(x, y),
+                Size = new Size(width, height),
+                BackColor = Color.Transparent
+            };
+
+            container.Paint += (s, e) =>
+            {
+                var g = e.Graphics;
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                var rect = new Rectangle(0, 0, container.Width - 1, container.Height - 1);
+                using var path = RoundedRect(rect, 8);
+                using var bgBrush = new SolidBrush(Color.White);
+                g.FillPath(bgBrush, path);
+                using var pen = new Pen(AppColors.Border, 1f);
+                g.DrawPath(pen, path);
+            };
+
+            dtp = new DateTimePicker
+            {
+                Location = new Point(6, (height - 24) / 2),
+                Size = new Size(width - 12, 24),
+                Font = AppFonts.Body,
+                Format = format,
+                ShowCheckBox = showCheckBox,
+                CalendarForeColor = AppColors.TextPrimary,
+                CalendarMonthBackground = Color.White,
+                CalendarTitleBackColor = AppColors.Primary,
+                CalendarTitleForeColor = Color.White,
+                CalendarTrailingForeColor = AppColors.TextSecondary
+            };
+
+            container.Controls.Add(dtp);
             parent.Controls.Add(container);
             return container;
         }

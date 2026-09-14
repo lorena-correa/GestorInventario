@@ -92,20 +92,47 @@ namespace GestorInventario.Repositories
         public bool Update(Usuario u)
         {
             using var conn = GetConnection();
-            using var cmd = new NpgsqlCommand(
-                @"UPDATE tb_usuarios
-                  SET nombre = @nombre,
-                      email  = @email,
-                      activo = @activo,
-                      rol_id = (SELECT id FROM tb_roles WHERE nombre = @rol)
-                  WHERE id = @id", conn);
+            string sql = @"UPDATE tb_usuarios
+                            SET nombre = @nombre,
+                                email  = @email,
+                                activo = @activo,
+                                rol_id = (SELECT id FROM tb_roles WHERE nombre = @rol)";
+            if (!string.IsNullOrEmpty(u.PasswordHash))
+                sql += ", password_hash = @hash";
+            sql += " WHERE id = @id";
 
+            using var cmd = new NpgsqlCommand(sql, conn);
             cmd.Parameters.AddWithValue("nombre", u.Nombre);
             cmd.Parameters.AddWithValue("email", u.Email);
             cmd.Parameters.AddWithValue("activo", u.Activo);
             cmd.Parameters.AddWithValue("rol", u.Rol);
+            if (!string.IsNullOrEmpty(u.PasswordHash))
+                cmd.Parameters.AddWithValue("hash", u.PasswordHash);
             cmd.Parameters.AddWithValue("id", u.Id);
             return cmd.ExecuteNonQuery() > 0;
+        }
+
+        public Usuario? GetByEmail(string email)
+        {
+            using var conn = GetConnection();
+            using var cmd = new NpgsqlCommand(
+                @"SELECT u.id, u.nombre, u.email, u.activo, r.nombre AS rol
+                  FROM tb_usuarios u
+                  JOIN tb_roles r ON u.rol_id = r.id
+                  WHERE u.email = @email", conn);
+            cmd.Parameters.AddWithValue("email", email);
+
+            using var reader = cmd.ExecuteReader();
+            if (!reader.Read()) return null;
+
+            return new Usuario
+            {
+                Id = reader.GetInt32(0),
+                Nombre = reader.GetString(1),
+                Email = reader.GetString(2),
+                Activo = reader.GetBoolean(3),
+                Rol = reader.GetString(4)
+            };
         }
 
         public bool Delete(int id)
@@ -402,6 +429,341 @@ namespace GestorInventario.Repositories
             Correo = r.IsDBNull(3) ? "" : r.GetString(3),
             Direccion = r.IsDBNull(4) ? "" : r.GetString(4),
             Activo = r.GetBoolean(5)
+        };
+    }
+
+    // ══════════════════════════════════════════════════════════
+    //  CATEGORIA REPOSITORY
+    // ══════════════════════════════════════════════════════════
+    public class CategoriaRepository : BaseRepository
+    {
+        private const string BaseSelect =
+            @"SELECT c.id, c.nombre, c.descripcion, c.activo,
+                     (SELECT COUNT(*) FROM tb_productos p
+                      WHERE p.categoria = c.nombre AND p.activo = true) AS total_productos
+              FROM tb_categorias c";
+
+        public List<Categoria> GetAll()
+        {
+            var lista = new List<Categoria>();
+            using var conn = GetConnection();
+            using var cmd = new NpgsqlCommand(
+                BaseSelect + " WHERE c.activo = true ORDER BY c.nombre", conn);
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read()) lista.Add(MapCategoria(reader));
+            return lista;
+        }
+
+        public List<Categoria> Search(string filtro)
+        {
+            var lista = new List<Categoria>();
+            using var conn = GetConnection();
+            using var cmd = new NpgsqlCommand(
+                BaseSelect + @" WHERE c.activo = true
+                                AND (c.nombre ILIKE @f OR c.descripcion ILIKE @f)
+                                ORDER BY c.nombre", conn);
+            cmd.Parameters.AddWithValue("f", $"%{filtro}%");
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read()) lista.Add(MapCategoria(reader));
+            return lista;
+        }
+
+        public bool Create(Categoria c)
+        {
+            if (ExisteNombre(c.Nombre, excluirId: null))
+                throw new InvalidOperationException($"Ya existe una categoría con el nombre '{c.Nombre}'.");
+
+            using var conn = GetConnection();
+            using var cmd = new NpgsqlCommand(
+                @"INSERT INTO tb_categorias (nombre, descripcion)
+                  VALUES (@nombre, @desc)", conn);
+            cmd.Parameters.AddWithValue("nombre", c.Nombre);
+            cmd.Parameters.AddWithValue("desc", c.Descripcion ?? "");
+            return cmd.ExecuteNonQuery() > 0;
+        }
+
+        public bool Update(Categoria c)
+        {
+            if (ExisteNombre(c.Nombre, excluirId: c.Id))
+                throw new InvalidOperationException($"Ya existe otra categoría con el nombre '{c.Nombre}'.");
+
+            using var conn = GetConnection();
+            using var cmd = new NpgsqlCommand(
+                @"UPDATE tb_categorias
+                  SET nombre      = @nombre,
+                      descripcion = @desc
+                  WHERE id = @id", conn);
+            cmd.Parameters.AddWithValue("nombre", c.Nombre);
+            cmd.Parameters.AddWithValue("desc", c.Descripcion ?? "");
+            cmd.Parameters.AddWithValue("id", c.Id);
+            return cmd.ExecuteNonQuery() > 0;
+        }
+
+        public bool Delete(int id)
+        {
+            using var conn = GetConnection();
+            using var cmd = new NpgsqlCommand(
+                "UPDATE tb_categorias SET activo = false WHERE id = @id", conn);
+            cmd.Parameters.AddWithValue("id", id);
+            return cmd.ExecuteNonQuery() > 0;
+        }
+
+        private bool ExisteNombre(string nombre, int? excluirId)
+        {
+            using var conn = GetConnection();
+            using var cmd = new NpgsqlCommand(
+                @"SELECT COUNT(*) FROM tb_categorias
+                  WHERE nombre = @nombre AND (@excluirId::int IS NULL OR id <> @excluirId)", conn);
+            cmd.Parameters.AddWithValue("nombre", nombre);
+            cmd.Parameters.AddWithValue("excluirId", (object?)excluirId ?? DBNull.Value);
+            return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
+        }
+
+        private static Categoria MapCategoria(NpgsqlDataReader r) => new()
+        {
+            Id = r.GetInt32(0),
+            Nombre = r.GetString(1),
+            Descripcion = r.IsDBNull(2) ? "" : r.GetString(2),
+            Activo = r.GetBoolean(3),
+            TotalProductos = Convert.ToInt32(r.GetInt64(4))
+        };
+    }
+
+    // ══════════════════════════════════════════════════════════
+    //  CLIENTE REPOSITORY
+    // ══════════════════════════════════════════════════════════
+    public class ClienteRepository : BaseRepository
+    {
+        public List<Cliente> GetAll()
+        {
+            var lista = new List<Cliente>();
+            using var conn = GetConnection();
+            using var cmd = new NpgsqlCommand(
+                @"SELECT id, nombre, documento, telefono, correo, direccion, activo
+                  FROM tb_clientes
+                  WHERE activo = true
+                  ORDER BY nombre", conn);
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read()) lista.Add(MapCliente(reader));
+            return lista;
+        }
+
+        public List<Cliente> Search(string filtro)
+        {
+            var lista = new List<Cliente>();
+            using var conn = GetConnection();
+            using var cmd = new NpgsqlCommand(
+                @"SELECT id, nombre, documento, telefono, correo, direccion, activo
+                  FROM tb_clientes
+                  WHERE activo = true
+                    AND (nombre    ILIKE @f
+                      OR documento ILIKE @f
+                      OR correo    ILIKE @f)
+                  ORDER BY nombre", conn);
+            cmd.Parameters.AddWithValue("f", $"%{filtro}%");
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read()) lista.Add(MapCliente(reader));
+            return lista;
+        }
+
+        public bool Create(Cliente c)
+        {
+            if (ExisteDocumento(c.Documento, excluirId: null))
+                throw new InvalidOperationException($"Ya existe un cliente con el documento '{c.Documento}'.");
+
+            using var conn = GetConnection();
+            using var cmd = new NpgsqlCommand(
+                @"INSERT INTO tb_clientes (nombre, documento, telefono, correo, direccion)
+                  VALUES (@nombre, @doc, @tel, @correo, @dir)", conn);
+            cmd.Parameters.AddWithValue("nombre", c.Nombre);
+            cmd.Parameters.AddWithValue("doc", c.Documento);
+            cmd.Parameters.AddWithValue("tel", c.Telefono ?? "");
+            cmd.Parameters.AddWithValue("correo", c.Email ?? "");
+            cmd.Parameters.AddWithValue("dir", c.Direccion ?? "");
+            return cmd.ExecuteNonQuery() > 0;
+        }
+
+        public bool Update(Cliente c)
+        {
+            if (ExisteDocumento(c.Documento, excluirId: c.Id))
+                throw new InvalidOperationException($"Ya existe otro cliente con el documento '{c.Documento}'.");
+
+            using var conn = GetConnection();
+            using var cmd = new NpgsqlCommand(
+                @"UPDATE tb_clientes
+                  SET nombre    = @nombre,
+                      documento = @doc,
+                      telefono  = @tel,
+                      correo    = @correo,
+                      direccion = @dir
+                  WHERE id = @id", conn);
+            cmd.Parameters.AddWithValue("nombre", c.Nombre);
+            cmd.Parameters.AddWithValue("doc", c.Documento);
+            cmd.Parameters.AddWithValue("tel", c.Telefono ?? "");
+            cmd.Parameters.AddWithValue("correo", c.Email ?? "");
+            cmd.Parameters.AddWithValue("dir", c.Direccion ?? "");
+            cmd.Parameters.AddWithValue("id", c.Id);
+            return cmd.ExecuteNonQuery() > 0;
+        }
+
+        public bool Delete(int id)
+        {
+            using var conn = GetConnection();
+            using var cmd = new NpgsqlCommand(
+                "UPDATE tb_clientes SET activo = false WHERE id = @id", conn);
+            cmd.Parameters.AddWithValue("id", id);
+            return cmd.ExecuteNonQuery() > 0;
+        }
+
+        private bool ExisteDocumento(string documento, int? excluirId)
+        {
+            using var conn = GetConnection();
+            using var cmd = new NpgsqlCommand(
+                @"SELECT COUNT(*) FROM tb_clientes
+                  WHERE documento = @doc AND (@excluirId::int IS NULL OR id <> @excluirId)", conn);
+            cmd.Parameters.AddWithValue("doc", documento);
+            cmd.Parameters.AddWithValue("excluirId", (object?)excluirId ?? DBNull.Value);
+            return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
+        }
+
+        private static Cliente MapCliente(NpgsqlDataReader r) => new()
+        {
+            Id = r.GetInt32(0),
+            Nombre = r.GetString(1),
+            Documento = r.GetString(2),
+            Telefono = r.IsDBNull(3) ? "" : r.GetString(3),
+            Email = r.IsDBNull(4) ? "" : r.GetString(4),
+            Direccion = r.IsDBNull(5) ? "" : r.GetString(5),
+            Activo = r.GetBoolean(6)
+        };
+    }
+
+    // ══════════════════════════════════════════════════════════
+    //  EMPLEADO REPOSITORY
+    // ══════════════════════════════════════════════════════════
+    public class EmpleadoRepository : BaseRepository
+    {
+        public List<Empleado> GetAll()
+        {
+            var lista = new List<Empleado>();
+            using var conn = GetConnection();
+            using var cmd = new NpgsqlCommand(
+                @"SELECT id, nombre, documento, rol, telefono, correo, direccion,
+                         fecha_ingreso, fecha_retiro, datos_adicionales, activo
+                  FROM tb_empleados
+                  WHERE activo = true
+                  ORDER BY nombre", conn);
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read()) lista.Add(MapEmpleado(reader));
+            return lista;
+        }
+
+        public List<Empleado> Search(string filtro)
+        {
+            var lista = new List<Empleado>();
+            using var conn = GetConnection();
+            using var cmd = new NpgsqlCommand(
+                @"SELECT id, nombre, documento, rol, telefono, correo, direccion,
+                         fecha_ingreso, fecha_retiro, datos_adicionales, activo
+                  FROM tb_empleados
+                  WHERE activo = true
+                    AND (nombre    ILIKE @f
+                      OR documento ILIKE @f
+                      OR rol       ILIKE @f)
+                  ORDER BY nombre", conn);
+            cmd.Parameters.AddWithValue("f", $"%{filtro}%");
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read()) lista.Add(MapEmpleado(reader));
+            return lista;
+        }
+
+        public bool Create(Empleado e)
+        {
+            if (ExisteDocumento(e.Documento, excluirId: null))
+                throw new InvalidOperationException($"Ya existe un empleado con el documento '{e.Documento}'.");
+
+            using var conn = GetConnection();
+            using var cmd = new NpgsqlCommand(
+                @"INSERT INTO tb_empleados
+                    (nombre, documento, rol, telefono, correo, direccion, fecha_ingreso, fecha_retiro, datos_adicionales)
+                  VALUES
+                    (@nombre, @doc, @rol, @tel, @correo, @dir, @ingreso, @retiro, @datos)", conn);
+            cmd.Parameters.AddWithValue("nombre", e.Nombre);
+            cmd.Parameters.AddWithValue("doc", e.Documento);
+            cmd.Parameters.AddWithValue("rol", e.Rol);
+            cmd.Parameters.AddWithValue("tel", e.Telefono ?? "");
+            cmd.Parameters.AddWithValue("correo", e.Email ?? "");
+            cmd.Parameters.AddWithValue("dir", e.Direccion ?? "");
+            cmd.Parameters.AddWithValue("ingreso", e.FechaIngreso);
+            cmd.Parameters.AddWithValue("retiro", (object?)e.FechaRetiro ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("datos", e.DatosAdicionales ?? "");
+            return cmd.ExecuteNonQuery() > 0;
+        }
+
+        public bool Update(Empleado e)
+        {
+            if (ExisteDocumento(e.Documento, excluirId: e.Id))
+                throw new InvalidOperationException($"Ya existe otro empleado con el documento '{e.Documento}'.");
+
+            using var conn = GetConnection();
+            using var cmd = new NpgsqlCommand(
+                @"UPDATE tb_empleados
+                  SET nombre            = @nombre,
+                      documento         = @doc,
+                      rol               = @rol,
+                      telefono          = @tel,
+                      correo            = @correo,
+                      direccion         = @dir,
+                      fecha_ingreso     = @ingreso,
+                      fecha_retiro      = @retiro,
+                      datos_adicionales = @datos
+                  WHERE id = @id", conn);
+            cmd.Parameters.AddWithValue("nombre", e.Nombre);
+            cmd.Parameters.AddWithValue("doc", e.Documento);
+            cmd.Parameters.AddWithValue("rol", e.Rol);
+            cmd.Parameters.AddWithValue("tel", e.Telefono ?? "");
+            cmd.Parameters.AddWithValue("correo", e.Email ?? "");
+            cmd.Parameters.AddWithValue("dir", e.Direccion ?? "");
+            cmd.Parameters.AddWithValue("ingreso", e.FechaIngreso);
+            cmd.Parameters.AddWithValue("retiro", (object?)e.FechaRetiro ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("datos", e.DatosAdicionales ?? "");
+            cmd.Parameters.AddWithValue("id", e.Id);
+            return cmd.ExecuteNonQuery() > 0;
+        }
+
+        public bool Delete(int id)
+        {
+            using var conn = GetConnection();
+            using var cmd = new NpgsqlCommand(
+                "UPDATE tb_empleados SET activo = false WHERE id = @id", conn);
+            cmd.Parameters.AddWithValue("id", id);
+            return cmd.ExecuteNonQuery() > 0;
+        }
+
+        private bool ExisteDocumento(string documento, int? excluirId)
+        {
+            using var conn = GetConnection();
+            using var cmd = new NpgsqlCommand(
+                @"SELECT COUNT(*) FROM tb_empleados
+                  WHERE documento = @doc AND (@excluirId::int IS NULL OR id <> @excluirId)", conn);
+            cmd.Parameters.AddWithValue("doc", documento);
+            cmd.Parameters.AddWithValue("excluirId", (object?)excluirId ?? DBNull.Value);
+            return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
+        }
+
+        private static Empleado MapEmpleado(NpgsqlDataReader r) => new()
+        {
+            Id = r.GetInt32(0),
+            Nombre = r.GetString(1),
+            Documento = r.GetString(2),
+            Rol = r.GetString(3),
+            Telefono = r.IsDBNull(4) ? "" : r.GetString(4),
+            Email = r.IsDBNull(5) ? "" : r.GetString(5),
+            Direccion = r.IsDBNull(6) ? "" : r.GetString(6),
+            FechaIngreso = r.GetDateTime(7),
+            FechaRetiro = r.IsDBNull(8) ? null : r.GetDateTime(8),
+            DatosAdicionales = r.IsDBNull(9) ? "" : r.GetString(9),
+            Activo = r.GetBoolean(10)
         };
     }
 

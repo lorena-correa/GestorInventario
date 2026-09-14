@@ -54,8 +54,7 @@ namespace GestorInventario.Forms
                 case "Reportes": OpenModule(new FrmHistorialMovimientos()); break;
                 case "Alertas": OpenModule(new FrmAlertas()); break;
                 case "Logout":
-                    if (MessageBox.Show("¿Desea cerrar sesión?", "Cerrar sesión",
-                        MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+                    if (ModernMessageBox.ShowConfirm("¿Desea cerrar sesión?", "Cerrar sesión", "Cerrar sesión") == DialogResult.Yes)
                     {
                         Session.Clear();
                         Application.Restart();
