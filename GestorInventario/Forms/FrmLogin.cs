@@ -177,24 +177,9 @@ namespace GestorInventario.Forms
                     txtPassword.Focus();
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Modo demostración de interfaces si no hay conexión activa a PostgreSQL
-                if ((user == "admin" || user == "admin@empresa.com" || user == "lorena") && (pass == "admin" || pass == "123456" || pass == "admin123"))
-                {
-                    Config.Session.IsAuthenticated = true;
-                    Config.Session.UserId = 1;
-                    Config.Session.UserName = "Lorena Correa (Admin)";
-                    Config.Session.Email = "lorena.correa@empresa.com";
-                    Config.Session.Role = "Administrador";
-
-                    var main = new FrmMain();
-                    main.Show();
-                    Hide();
-                    return;
-                }
-
-                lblError.Text = "⚠ Sin conexión a BD. Ingrese con admin / admin para modo diseño.";
+                lblError.Text = $"⚠ No se pudo conectar a la base de datos: {ex.Message}";
             }
             finally
             {
