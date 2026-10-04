@@ -18,6 +18,7 @@ namespace GestorInventario.Forms
         private readonly bool _isEdit;
         private readonly ProductoService _service = new();
         private readonly ProveedorService _provService = new();
+        private readonly CategoriaService _catService = new();
 
         // Controles con nomenclatura estándar según la Guía Práctica de Laboratorio
         private TextBox txtNombreProducto = null!;
@@ -28,6 +29,7 @@ namespace GestorInventario.Forms
         private TextBox txtPrecioCompra = null!;
         private TextBox txtPrecioVenta = null!;
         private TextBox txtCantidadStock = null!;
+        private TextBox txtStockMinimo = null!;
         private TextBox txtDetallesProducto = null!;
         private ComboBox cboProveedor = null!;
         private Button btnActualizar = null!;
@@ -46,6 +48,7 @@ namespace GestorInventario.Forms
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
 
             BuildUI();
+            CargarCombos();
             if (_isEdit) FillData();
         }
 
@@ -75,12 +78,10 @@ namespace GestorInventario.Forms
             // Fila 1: Nombre Producto | Categoría
             UIHelper.CreateRoundedTextBox(content, "Nombre Producto *", out txtNombreProducto, col1, y, w);
             UIHelper.CreateRoundedComboBox(content, "Categoría *", out cboCategoria, col2, y, w);
-            cboCategoria.Items.AddRange(new[] { "Electrónica y Pantallas", "Periféricos y Controles", "Cables y Conectores", "Almacenamiento Digital", "Redes y Conectividad", "Componentes de PC", "Accesorios Varios" });
-            cboCategoria.SelectedIndex = 0;
             y += rowH;
 
             // Fila 2: Código Referencia | Ruta Imagen
-            UIHelper.CreateRoundedTextBox(content, "Código Referencia *", out txtCodigoReferencia, col1, y, w);
+            UIHelper.CreateRoundedTextBox(content, "Código Referencia *", out txtCodigoReferencia, col1, y, w, readOnly: _isEdit);
 
             // Ruta Imagen + botón examinar con radio unificado 8px
             var lblImg = new Label { Text = "Ruta Imagen", Font = AppFonts.SmallBold, ForeColor = AppColors.TextSecondary, Location = new Point(col2, y), AutoSize = true, BackColor = Color.Transparent };
@@ -100,11 +101,14 @@ namespace GestorInventario.Forms
             UIHelper.CreateRoundedTextBox(content, "Precio Venta *", out txtPrecioVenta, col2, y, w);
             y += rowH;
 
-            // Fila 4: Cantidad stock | Proveedor
-            UIHelper.CreateRoundedTextBox(content, "Cantidad stock *", out txtCantidadStock, col1, y, w);
+            // Fila 4: Cantidad stock | Stock mínimo | Proveedor
+            int wMitad = (w - 16) / 2;
+            UIHelper.CreateRoundedTextBox(content, "Cantidad stock *", out txtCantidadStock, col1, y, wMitad, readOnly: _isEdit);
+            UIHelper.CreateRoundedTextBox(content, "Stock mínimo *", out txtStockMinimo, col1 + wMitad + 16, y, wMitad);
+            txtStockMinimo.Text = "5";
             UIHelper.CreateRoundedComboBox(content, "Proveedor Asignado", out cboProveedor, col2, y, w);
-            cboProveedor.Items.AddRange(new[] { "TechSupply S.A.", "Distribuidora Norte", "GlobalParts Ltda.", "Importadora Andina", "Sin Proveedor" });
-            cboProveedor.SelectedIndex = 0;
+            cboProveedor.FormattingEnabled = true;
+            cboProveedor.Format += (s, e) => { if (e.ListItem is Proveedor p) e.Value = p.Nombre; };
             y += rowH;
 
             // Fila 5: Detalles producto (Multiline con contenedor redondeado)
@@ -121,18 +125,46 @@ namespace GestorInventario.Forms
             content.Controls.Add(btnSalir);
         }
 
+        /// <summary>Categorías y proveedores se cargan desde la base de datos.</summary>
+        private void CargarCombos()
+        {
+            try
+            {
+                foreach (var c in _catService.ObtenerTodos())
+                    cboCategoria.Items.Add(c.Nombre);
+
+                // Opción con Id 0 = producto sin proveedor (se guarda como NULL)
+                cboProveedor.Items.Add(new Proveedor { Id = 0, Nombre = "Sin proveedor" });
+                foreach (var p in _provService.ObtenerTodos())
+                    cboProveedor.Items.Add(p);
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.ShowError(ex.Message, "Error al cargar datos");
+            }
+
+            if (cboCategoria.Items.Count > 0) cboCategoria.SelectedIndex = 0;
+            if (cboProveedor.Items.Count > 0) cboProveedor.SelectedIndex = 0;
+        }
+
         private void FillData()
         {
             var p = _product!;
             txtCodigoReferencia.Text = p.Codigo;
             txtNombreProducto.Text = p.Nombre;
             txtDetallesProducto.Text = p.Descripcion;
-            txtPrecioCompra.Text = p.PrecioCompra.ToString("N0");
-            txtPrecioVenta.Text = p.PrecioVenta.ToString("N0");
+            txtPrecioCompra.Text = p.PrecioCompra.ToString("0");
+            txtPrecioVenta.Text = p.PrecioVenta.ToString("0");
             txtCantidadStock.Text = p.StockActual.ToString();
+            txtStockMinimo.Text = p.StockMinimo.ToString();
 
-            if (cboCategoria.Items.Contains(p.Categoria)) cboCategoria.SelectedItem = p.Categoria;
-            if (cboProveedor.Items.Contains(p.Proveedor)) cboProveedor.SelectedItem = p.Proveedor;
+            // Si la categoría guardada ya no está en la tabla, se conserva igual
+            if (!string.IsNullOrEmpty(p.Categoria) && !cboCategoria.Items.Contains(p.Categoria))
+                cboCategoria.Items.Add(p.Categoria);
+            if (!string.IsNullOrEmpty(p.Categoria)) cboCategoria.SelectedItem = p.Categoria;
+
+            foreach (var item in cboProveedor.Items)
+                if (item is Proveedor prov && prov.Id == p.ProveedorId) { cboProveedor.SelectedItem = prov; break; }
         }
 
         private void BtnActualizar_Click(object? sender, EventArgs e)
@@ -170,36 +202,52 @@ namespace GestorInventario.Forms
                 hayErrores = true;
             }
 
+            if (!int.TryParse(txtStockMinimo.Text.Trim(), out int stockMin) || stockMin < 0)
+            {
+                errValidador.SetError(txtStockMinimo, "El Stock mínimo no puede ser negativo.");
+                hayErrores = true;
+            }
+
+            if (cboCategoria.SelectedItem == null)
+            {
+                errValidador.SetError(cboCategoria, "Seleccione una categoría.");
+                hayErrores = true;
+            }
+
             if (hayErrores)
             {
                 ModernMessageBox.ShowWarning("Por favor complete los campos obligatorios indicados con error.", "Validación");
                 return;
             }
 
-            var producto = _isEdit ? _product! : new Producto();
-            producto.Codigo = txtCodigoReferencia.Text.Trim().ToUpper();
-            producto.Nombre = txtNombreProducto.Text.Trim();
-            producto.Descripcion = txtDetallesProducto.Text.Trim();
-            producto.PrecioCompra = pc;
-            producto.PrecioVenta = pv;
-            producto.StockActual = stock;
-            producto.StockMinimo = 5;
-            producto.Categoria = cboCategoria.SelectedItem?.ToString() ?? "";
-            producto.Proveedor = cboProveedor.SelectedItem?.ToString() ?? "";
-            producto.Activo = true;
+            var proveedor = cboProveedor.SelectedItem as Proveedor;
+            var producto = new Producto
+            {
+                Id = _product?.Id ?? 0,
+                Codigo = txtCodigoReferencia.Text.Trim().ToUpper(),
+                Nombre = txtNombreProducto.Text.Trim(),
+                Descripcion = txtDetallesProducto.Text.Trim(),
+                PrecioCompra = pc,
+                PrecioVenta = pv,
+                StockActual = stock,
+                StockMinimo = stockMin,
+                Categoria = cboCategoria.SelectedItem?.ToString() ?? "",
+                ProveedorId = proveedor?.Id ?? 0,
+                Proveedor = proveedor?.Nombre ?? "",
+                Activo = true
+            };
 
             try
             {
                 _service.Guardar(producto);
+                ModernMessageBox.ShowSuccess("¡Producto guardado correctamente!", "Operación Exitosa");
+                Saved?.Invoke();
+                Close();
             }
-            catch
+            catch (Exception ex)
             {
-                // Fallback si BD no conectada
+                ModernMessageBox.ShowError(ex.Message, "Error al guardar");
             }
-
-            ModernMessageBox.ShowSuccess("¡Producto actualizado y guardado correctamente!", "Operación Exitosa");
-            Saved?.Invoke();
-            Close();
         }
     }
 
