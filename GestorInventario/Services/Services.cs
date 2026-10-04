@@ -5,7 +5,6 @@ namespace GestorInventario.Services
 {
     
     /// Authentication service — connect to PostgreSQL via AuthRepository.
-    /// </summary>
     public class AuthService
     {
         private readonly UsuarioRepository _repo = new();
@@ -380,6 +379,81 @@ namespace GestorInventario.Services
         {
             try { return _repo.Delete(id); }
             catch (Exception ex) { throw new Exception($"Error al eliminar usuario: {ex.Message}"); }
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════
+    //  FACTURA SERVICE
+    // ══════════════════════════════════════════════════════════
+    public class FacturaService
+    {
+        public const decimal TasaIva = 0.19m;
+        private readonly FacturaRepository _repo = new();
+
+        public List<Factura> ObtenerTodas()
+        {
+            try { return _repo.GetAll(); }
+            catch (Exception ex) { throw new Exception($"Error al obtener facturas: {ex.Message}"); }
+        }
+
+        public List<Factura> Buscar(string termino, string estado)
+        {
+            try { return _repo.Search(termino, estado); }
+            catch (Exception ex) { throw new Exception($"Error al buscar facturas: {ex.Message}"); }
+        }
+
+        public Factura? ObtenerPorId(int id)
+        {
+            try { return _repo.GetById(id); }
+            catch (Exception ex) { throw new Exception($"Error al obtener la factura: {ex.Message}"); }
+        }
+
+        public string SiguienteNumero()
+        {
+            try { return _repo.GetSiguienteNumero(); }
+            catch (Exception ex) { throw new Exception($"Error al generar el consecutivo: {ex.Message}"); }
+        }
+
+        /// <summary>Subtotal, IVA y total de la factura a partir de sus líneas.</summary>
+        public static void CalcularTotales(Factura f)
+        {
+            f.Subtotal = f.Detalles.Sum(d => d.Subtotal);
+            f.TotalIva = f.Subtotal * TasaIva;
+            f.TotalFactura = Math.Max(0, f.Subtotal + f.TotalIva - f.Descuento);
+        }
+
+        public bool Guardar(Factura f)
+        {
+            if (f.Detalles.Count == 0)
+                throw new InvalidOperationException("La factura debe tener al menos un producto.");
+            if (f.Descuento < 0)
+                throw new InvalidOperationException("El descuento no puede ser negativo.");
+
+            CalcularTotales(f);
+            try
+            {
+                if (f.Id == 0) return _repo.Create(f) > 0;
+                else return _repo.Update(f);
+            }
+            catch (Exception ex) { throw new Exception(ex.Message); }
+        }
+
+        public bool Anular(int id)
+        {
+            try { return _repo.Anular(id); }
+            catch (Exception ex) { throw new Exception($"Error al anular factura: {ex.Message}"); }
+        }
+
+        public List<Factura> ObtenerPorRango(DateTime desde, DateTime hasta)
+        {
+            try { return _repo.GetPorRangoFechas(desde, hasta); }
+            catch (Exception ex) { throw new Exception($"Error al generar el informe: {ex.Message}"); }
+        }
+
+        public List<ProductoVendido> ObtenerMasVendidos(DateTime desde, DateTime hasta)
+        {
+            try { return _repo.GetProductosMasVendidos(desde, hasta); }
+            catch (Exception ex) { throw new Exception($"Error al generar el informe: {ex.Message}"); }
         }
     }
 }

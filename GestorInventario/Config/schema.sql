@@ -174,6 +174,36 @@ CREATE TABLE IF NOT EXISTS tb_alertas (
     resuelto_en  TIMESTAMP
 );
 
+-- ── Facturas (encabezado / maestro) ────────────────────────────
+CREATE TABLE IF NOT EXISTS tb_facturas (
+    id              SERIAL PRIMARY KEY,
+    nro_factura     VARCHAR(20) NOT NULL UNIQUE,
+    fecha_registro  TIMESTAMP NOT NULL DEFAULT NOW(),
+    cliente_id      INT NOT NULL REFERENCES tb_clientes(id),
+    empleado_id     INT NOT NULL REFERENCES tb_empleados(id),
+    estado          VARCHAR(20) NOT NULL DEFAULT 'Emitida'
+                    CHECK (estado IN ('Emitida', 'Pagada', 'Pendiente', 'Anulada')),
+    subtotal        DECIMAL(14, 2) NOT NULL DEFAULT 0,
+    descuento       DECIMAL(14, 2) NOT NULL DEFAULT 0 CHECK (descuento >= 0),
+    total_iva       DECIMAL(14, 2) NOT NULL DEFAULT 0,
+    total_factura   DECIMAL(14, 2) NOT NULL DEFAULT 0,
+    creado_en       TIMESTAMP DEFAULT NOW()
+);
+
+-- ── Detalle de factura (líneas / detalle) ──────────────────────
+CREATE TABLE IF NOT EXISTS tb_detalle_factura (
+    id               SERIAL PRIMARY KEY,
+    factura_id       INT NOT NULL REFERENCES tb_facturas(id) ON DELETE CASCADE,
+    producto_id      INT NOT NULL REFERENCES tb_productos(id),
+    cantidad         INT NOT NULL CHECK (cantidad > 0),
+    precio_unitario  DECIMAL(12, 2) NOT NULL,
+    subtotal         DECIMAL(14, 2) NOT NULL,
+    iva              DECIMAL(14, 2) NOT NULL,
+    total_linea      DECIMAL(14, 2) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS ix_detalle_factura_factura ON tb_detalle_factura(factura_id);
+
 -- ── Vistas útiles ──────────────────────────────────────────────
 
 -- Vista: Estado actual del inventario

@@ -132,6 +132,19 @@ namespace GestorInventario.Forms
             }
         }
 
+        /// <summary>
+        /// Botón SALIR de los módulos: cierra el módulo actual y regresa al Dashboard.
+        /// Se usa BeginInvoke porque LoadModule destruye el formulario del módulo,
+        /// y no debe hacerse mientras todavía se ejecuta el clic de su botón.
+        /// </summary>
+        public static void CerrarModulo(Form modulo)
+        {
+            if (modulo.TopLevelControl is FrmMain main)
+                main.BeginInvoke(() => main.Navigate("Dashboard"));
+            else
+                modulo.Close();
+        }
+
         private void LoadModule(Form form, string moduleName, string sidebarKey)
         {
             _topBar.ModuleName = moduleName;

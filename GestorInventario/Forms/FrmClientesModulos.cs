@@ -16,8 +16,6 @@ namespace GestorInventario.Forms
         private DataGridView dgvClientes = null!;
         private TextBox txtBuscar = null!;
         private Button btnNuevo = null!;
-        private Button btnEditar = null!;
-        private Button btnBorrar = null!;
         private readonly ClienteService _service = new();
 
         private Cliente? _clienteSeleccionado;
@@ -86,44 +84,10 @@ namespace GestorInventario.Forms
             btnNuevo.Click += (s, e) => AbrirFormularioCliente(null);
             actionsPanel.Controls.Add(btnNuevo);
 
-            btnEditar = UIHelper.CreateEditButton("✏️ EDITAR", new Size(95, 38), new Point(0, 0));
-            btnEditar.Margin = new Padding(6, 0, 0, 0);
-            btnEditar.Click += (s, e) =>
-            {
-                if (_clienteSeleccionado == null)
-                {
-                    ModernMessageBox.ShowWarning("Por favor seleccione un cliente de la lista para editar.", "Selección Requerida");
-                    return;
-                }
-                AbrirFormularioCliente(_clienteSeleccionado);
-            };
-            actionsPanel.Controls.Add(btnEditar);
-
-            btnBorrar = UIHelper.CreateDangerButton("🗑 BORRAR", new Size(95, 38), new Point(0, 0));
-            btnBorrar.Margin = new Padding(6, 0, 0, 0);
-            btnBorrar.Click += (s, e) =>
-            {
-                if (_clienteSeleccionado == null)
-                {
-                    ModernMessageBox.ShowWarning("Por favor seleccione un cliente de la lista para eliminar.", "Selección Requerida");
-                    return;
-                }
-                if (ModernMessageBox.ShowConfirm($"¿Desea eliminar al cliente {_clienteSeleccionado.Nombre}?", "Confirmar Eliminación", "Eliminar") == DialogResult.Yes)
-                {
-                    try
-                    {
-                        _service.Eliminar(_clienteSeleccionado.Id);
-                        _clienteSeleccionado = null;
-                        CargarDatos(txtBuscar.Text);
-                        ModernMessageBox.ShowSuccess("Cliente eliminado con éxito.");
-                    }
-                    catch (Exception ex)
-                    {
-                        ModernMessageBox.ShowError(ex.Message, "Error al eliminar");
-                    }
-                }
-            };
-            actionsPanel.Controls.Add(btnBorrar);
+            var btnSalir = UIHelper.CreateSecondaryButton("SALIR", new Size(90, 38), new Point(0, 0));
+            btnSalir.Margin = new Padding(6, 0, 0, 0);
+            btnSalir.Click += (s, e) => FrmMain.CerrarModulo(this);
+            actionsPanel.Controls.Add(btnSalir);
 
             toolbarCard.Controls.Add(actionsPanel);
             Controls.Add(toolbarCard);
@@ -147,11 +111,15 @@ namespace GestorInventario.Forms
             dgvClientes.Columns.Add("Direccion", "DIRECCIÓN");
             dgvClientes.Columns.Add("Estado", "ESTADO");
 
+            dgvClientes.Columns["ID"].AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
             dgvClientes.Columns["ID"].Width = 60;
             dgvClientes.Columns["Cliente"].Width = 240;
             dgvClientes.Columns["Documento"].Width = 140;
             dgvClientes.Columns["Telefono"].Width = 130;
             dgvClientes.Columns["Email"].Width = 220;
+
+            // Botones Editar / Borrar dentro del grid
+            UIHelper.AddGridActionButtons<Cliente>(dgvClientes, AbrirFormularioCliente, BorrarCliente);
 
             dgvClientes.SelectionChanged += (s, e) =>
             {
@@ -200,6 +168,24 @@ namespace GestorInventario.Forms
             var form = new frmClientes(cliente);
             form.ClienteGuardado += () => CargarDatos(txtBuscar.Text);
             form.ShowDialog(this);
+        }
+
+        private void BorrarCliente(Cliente cliente)
+        {
+            if (ModernMessageBox.ShowConfirm($"¿Desea eliminar al cliente {cliente.Nombre}?", "Confirmar Eliminación", "Eliminar") == DialogResult.Yes)
+            {
+                try
+                {
+                    _service.Eliminar(cliente.Id);
+                    _clienteSeleccionado = null;
+                    CargarDatos(txtBuscar.Text);
+                    ModernMessageBox.ShowSuccess("Cliente eliminado con éxito.");
+                }
+                catch (Exception ex)
+                {
+                    ModernMessageBox.ShowError(ex.Message, "Error al eliminar");
+                }
+            }
         }
     }
 

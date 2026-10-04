@@ -146,6 +146,57 @@ namespace GestorInventario.Helpers
             dgv.AlternatingRowsDefaultCellStyle.SelectionForeColor = AppColors.Primary;
         }
 
+        // ── Botones de acción dentro del grid (Editar / Borrar por fila) ──
+        // Agrega dos columnas de botón al final del DataGridView. Al hacer clic,
+        // se entrega el objeto guardado en el Tag de la fila (Cliente, Producto…).
+        public static void AddGridActionButtons<T>(DataGridView dgv, Action<T> onEditar, Action<T> onBorrar,
+                                                   string textoBorrar = "Borrar") where T : class
+        {
+            dgv.Columns.Add(CreateGridButtonColumn("ColEditar", "Editar"));
+            dgv.Columns.Add(CreateGridButtonColumn("ColBorrar", textoBorrar));
+
+            // Dibuja cada botón como una píldora redondeada con el color de la app
+            dgv.CellPainting += (s, e) =>
+            {
+                if (e.RowIndex < 0 || e.ColumnIndex < 0 || e.Graphics == null) return;
+                string name = dgv.Columns[e.ColumnIndex].Name;
+                if (name != "ColEditar" && name != "ColBorrar") return;
+
+                e.PaintBackground(e.CellBounds, true);
+                var rect = new Rectangle(e.CellBounds.X + 8, e.CellBounds.Y + 8, e.CellBounds.Width - 16, e.CellBounds.Height - 16);
+                Color color = name == "ColEditar" ? AppColors.Primary : AppColors.Danger;
+
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                using (var path = RoundedRect(rect, 6))
+                using (var brush = new SolidBrush(color))
+                    e.Graphics.FillPath(brush, path);
+
+                TextRenderer.DrawText(e.Graphics, dgv.Columns[e.ColumnIndex] is DataGridViewButtonColumn b ? b.Text : "",
+                    AppFonts.SmallBold, rect, Color.White,
+                    TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                e.Handled = true;
+            };
+
+            dgv.CellContentClick += (s, e) =>
+            {
+                if (e.RowIndex < 0 || dgv.Rows[e.RowIndex].Tag is not T item) return;
+                string col = dgv.Columns[e.ColumnIndex].Name;
+                if (col == "ColEditar") onEditar(item);
+                else if (col == "ColBorrar") onBorrar(item);
+            };
+        }
+
+        private static DataGridViewButtonColumn CreateGridButtonColumn(string name, string text) => new()
+        {
+            Name = name,
+            HeaderText = "",
+            Text = text,
+            UseColumnTextForButtonValue = true,
+            FlatStyle = FlatStyle.Flat,
+            AutoSizeMode = DataGridViewAutoSizeColumnMode.None,
+            Width = 90
+        };
+
         // ── Create Label ────────────────────────────────────────────────
         public static Label CreateLabel(string text, Font font, Color color, Point location, Size? size = null)
         {

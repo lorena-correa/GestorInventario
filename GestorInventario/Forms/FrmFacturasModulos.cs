@@ -5,6 +5,8 @@ using System.Linq;
 using System.Windows.Forms;
 using GestorInventario.Components;
 using GestorInventario.Helpers;
+using GestorInventario.Models;
+using GestorInventario.Services;
 
 namespace GestorInventario.Forms
 {
@@ -16,20 +18,10 @@ namespace GestorInventario.Forms
         private DataGridView dgvFacturas = null!;
         private TextBox txtBuscar = null!;
         private Button btnNuevaFactura = null!;
-        private Button btnVerDetalle = null!;
-        private Button btnAnular = null!;
         private ComboBox cboFiltroEstado = null!;
 
-        private readonly List<FacturaItem> _facturas = new()
-        {
-            new FacturaItem { Id = 1, NroFactura = "FAC-00101", FechaRegistro = DateTime.Today.AddDays(-3), Cliente = "Carlos Andrés Pérez", Empleado = "Lorena Correa (Cajera)", Estado = "Pagada", Descuento = 0, TotalIva = 95000, TotalFactura = 595000 },
-            new FacturaItem { Id = 2, NroFactura = "FAC-00102", FechaRegistro = DateTime.Today.AddDays(-2), Cliente = "Distribuidora Los Andes S.A.S.", Empleado = "Ana María Torres", Estado = "Pagada", Descuento = 50000, TotalIva = 247000, TotalFactura = 1547000 },
-            new FacturaItem { Id = 3, NroFactura = "FAC-00103", FechaRegistro = DateTime.Today.AddDays(-1), Cliente = "María Fernanda Gómez", Empleado = "Lorena Correa (Cajera)", Estado = "Pendiente", Descuento = 10000, TotalIva = 43700, TotalFactura = 273700 },
-            new FacturaItem { Id = 4, NroFactura = "FAC-00104", FechaRegistro = DateTime.Today, Cliente = "Tecnología Global S.A.", Empleado = "Javier Saldarriaga", Estado = "Pagada", Descuento = 0, TotalIva = 380000, TotalFactura = 2380000 },
-            new FacturaItem { Id = 5, NroFactura = "FAC-00105", FechaRegistro = DateTime.Today, Cliente = "Juan David Morales", Empleado = "Lorena Correa (Cajera)", Estado = "Emitida", Descuento = 0, TotalIva = 34200, TotalFactura = 214200 }
-        };
-
-        private FacturaItem? _facturaSeleccionada;
+        private readonly FacturaService _service = new();
+        private Factura? _facturaSeleccionada;
 
         public frmlistaFacturas()
         {
@@ -102,36 +94,10 @@ namespace GestorInventario.Forms
             btnNuevaFactura.Click += (s, e) => AbrirFormularioFactura(null);
             actionsPanel.Controls.Add(btnNuevaFactura);
 
-            btnVerDetalle = UIHelper.CreateEditButton("👁️ VER", new Size(85, 38), new Point(0, 0));
-            btnVerDetalle.Margin = new Padding(6, 0, 0, 0);
-            btnVerDetalle.Click += (s, e) =>
-            {
-                if (_facturaSeleccionada == null)
-                {
-                    ModernMessageBox.ShowWarning("Por favor seleccione una factura de la lista.", "Selección Requerida");
-                    return;
-                }
-                AbrirFormularioFactura(_facturaSeleccionada);
-            };
-            actionsPanel.Controls.Add(btnVerDetalle);
-
-            btnAnular = UIHelper.CreateDangerButton("🚫 ANULAR", new Size(95, 38), new Point(0, 0));
-            btnAnular.Margin = new Padding(6, 0, 0, 0);
-            btnAnular.Click += (s, e) =>
-            {
-                if (_facturaSeleccionada == null)
-                {
-                    ModernMessageBox.ShowWarning("Por favor seleccione una factura para anular.", "Selección Requerida");
-                    return;
-                }
-                if (ModernMessageBox.ShowConfirm($"¿Desea anular la factura {_facturaSeleccionada.NroFactura}?", "Confirmar Anulación", "Anular") == DialogResult.Yes)
-                {
-                    _facturaSeleccionada.Estado = "Anulada";
-                    CargarDatos(txtBuscar.Text);
-                    ModernMessageBox.ShowSuccess("Factura anulada correctamente.", "Facturación");
-                }
-            };
-            actionsPanel.Controls.Add(btnAnular);
+            var btnSalir = UIHelper.CreateSecondaryButton("SALIR", new Size(90, 38), new Point(0, 0));
+            btnSalir.Margin = new Padding(6, 0, 0, 0);
+            btnSalir.Click += (s, e) => FrmMain.CerrarModulo(this);
+            actionsPanel.Controls.Add(btnSalir);
 
             toolbarCard.Controls.Add(actionsPanel);
             Controls.Add(toolbarCard);
@@ -155,6 +121,9 @@ namespace GestorInventario.Forms
             dgvFacturas.Columns.Add("TotalFactura", "TOTAL FACTURA");
             dgvFacturas.Columns.Add("Estado", "ESTADO");
 
+            // Botones Editar / Anular dentro del grid
+            UIHelper.AddGridActionButtons<Factura>(dgvFacturas, AbrirFormularioFactura, AnularFactura, "Anular");
+
             dgvFacturas.Columns["NroFactura"].Width = 130;
             dgvFacturas.Columns["Fecha"].Width = 140;
             dgvFacturas.Columns["Cliente"].Width = 240;
@@ -164,12 +133,12 @@ namespace GestorInventario.Forms
             dgvFacturas.SelectionChanged += (s, e) =>
             {
                 if (dgvFacturas.SelectedRows.Count > 0)
-                    _facturaSeleccionada = dgvFacturas.SelectedRows[0].Tag as FacturaItem;
+                    _facturaSeleccionada = dgvFacturas.SelectedRows[0].Tag as Factura;
             };
 
             dgvFacturas.CellDoubleClick += (s, e) =>
             {
-                if (_facturaSeleccionada != null)
+                if (e.RowIndex >= 0 && _facturaSeleccionada != null)
                     AbrirFormularioFactura(_facturaSeleccionada);
             };
 
@@ -186,65 +155,78 @@ namespace GestorInventario.Forms
 
         private void CargarDatos(string filtro = "")
         {
-            dgvFacturas.Rows.Clear();
-            string estadoFiltro = cboFiltroEstado.SelectedItem?.ToString() ?? "Todos";
-
-            foreach (var f in _facturas)
+            try
             {
-                if (estadoFiltro != "Todos" && f.Estado != estadoFiltro)
-                    continue;
+                dgvFacturas.Rows.Clear();
+                _facturaSeleccionada = null;
+                string estadoFiltro = cboFiltroEstado.SelectedItem?.ToString() ?? "Todos";
 
-                if (!string.IsNullOrEmpty(filtro) &&
-                    !f.NroFactura.Contains(filtro, StringComparison.OrdinalIgnoreCase) &&
-                    !f.Cliente.Contains(filtro, StringComparison.OrdinalIgnoreCase) &&
-                    !f.Empleado.Contains(filtro, StringComparison.OrdinalIgnoreCase))
-                    continue;
+                foreach (var f in _service.Buscar(filtro.Trim(), estadoFiltro))
+                {
+                    int r = dgvFacturas.Rows.Add(
+                        f.NroFactura,
+                        f.FechaRegistro.ToString("dd/MM/yyyy HH:mm"),
+                        f.Cliente,
+                        f.Empleado,
+                        $"${f.Descuento:N0}",
+                        $"${f.TotalIva:N0}",
+                        $"${f.TotalFactura:N0}",
+                        f.Estado
+                    );
 
-                int r = dgvFacturas.Rows.Add(
-                    f.NroFactura,
-                    f.FechaRegistro.ToString("dd/MM/yyyy HH:mm"),
-                    f.Cliente,
-                    f.Empleado,
-                    $"${f.Descuento:N0}",
-                    $"${f.TotalIva:N0}",
-                    $"${f.TotalFactura:N0}",
-                    f.Estado
-                );
-
-                dgvFacturas.Rows[r].Tag = f;
-                if (f.Estado == "Pagada")
-                    dgvFacturas.Rows[r].Cells["Estado"].Style.ForeColor = AppColors.Success;
-                else if (f.Estado == "Pendiente")
-                    dgvFacturas.Rows[r].Cells["Estado"].Style.ForeColor = AppColors.Warning;
-                else if (f.Estado == "Anulada")
-                    dgvFacturas.Rows[r].Cells["Estado"].Style.ForeColor = AppColors.Danger;
-                else
-                    dgvFacturas.Rows[r].Cells["Estado"].Style.ForeColor = AppColors.Primary;
+                    dgvFacturas.Rows[r].Tag = f;
+                    if (f.Estado == "Pagada")
+                        dgvFacturas.Rows[r].Cells["Estado"].Style.ForeColor = AppColors.Success;
+                    else if (f.Estado == "Pendiente")
+                        dgvFacturas.Rows[r].Cells["Estado"].Style.ForeColor = AppColors.Warning;
+                    else if (f.Estado == "Anulada")
+                        dgvFacturas.Rows[r].Cells["Estado"].Style.ForeColor = AppColors.Danger;
+                    else
+                        dgvFacturas.Rows[r].Cells["Estado"].Style.ForeColor = AppColors.Primary;
+                }
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.ShowError($"Error al cargar facturas: {ex.Message}");
             }
         }
 
-        private void AbrirFormularioFactura(FacturaItem? factura)
+        private void AbrirFormularioFactura(Factura? factura)
         {
-            var form = new frmFacturas(factura);
-            form.FacturaGuardada += (nuevaFactura) =>
+            try
             {
-                if (factura == null)
+                // Para editar se trae la factura completa con su detalle
+                Factura? completa = factura == null ? null : _service.ObtenerPorId(factura.Id);
+                var form = new frmFacturas(completa);
+                form.FacturaGuardada += () => CargarDatos(txtBuscar.Text);
+                form.ShowDialog(this);
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.ShowError(ex.Message, "Facturación");
+            }
+        }
+
+        private void AnularFactura(Factura factura)
+        {
+            if (factura.Estado == "Anulada")
+            {
+                ModernMessageBox.ShowInfo($"La factura {factura.NroFactura} ya está anulada.", "Facturación");
+                return;
+            }
+            if (ModernMessageBox.ShowConfirm($"¿Desea anular la factura {factura.NroFactura}?\nEl stock vendido regresará al inventario.", "Confirmar Anulación", "Anular") == DialogResult.Yes)
+            {
+                try
                 {
-                    nuevaFactura.Id = _facturas.Count + 1;
-                    _facturas.Insert(0, nuevaFactura);
+                    _service.Anular(factura.Id);
+                    CargarDatos(txtBuscar.Text);
+                    ModernMessageBox.ShowSuccess("Factura anulada correctamente.", "Facturación");
                 }
-                else
+                catch (Exception ex)
                 {
-                    factura.Cliente = nuevaFactura.Cliente;
-                    factura.Empleado = nuevaFactura.Empleado;
-                    factura.Estado = nuevaFactura.Estado;
-                    factura.Descuento = nuevaFactura.Descuento;
-                    factura.TotalIva = nuevaFactura.TotalIva;
-                    factura.TotalFactura = nuevaFactura.TotalFactura;
+                    ModernMessageBox.ShowError(ex.Message, "Error al anular");
                 }
-                CargarDatos(txtBuscar.Text);
-            };
-            form.ShowDialog(this);
+            }
         }
     }
 
@@ -253,9 +235,15 @@ namespace GestorInventario.Forms
     // =========================================================================
     public class frmFacturas : Form
     {
-        public event Action<FacturaItem>? FacturaGuardada;
-        private readonly FacturaItem? _facturaExistente;
+        public event Action? FacturaGuardada;
+        private readonly Factura? _facturaExistente;
+        private readonly bool _esEdicion;
         private readonly bool _esSoloLectura;
+
+        private readonly FacturaService _service = new();
+        private List<Cliente> _clientes = new();
+        private List<Empleado> _empleados = new();
+        private List<Producto> _productos = new();
 
         // Controles de cabecera según la guía
         private TextBox txtNroFactura = null!;
@@ -280,12 +268,13 @@ namespace GestorInventario.Forms
         private Button btnSalir = null!;
         private ErrorProvider errValidador = null!;
 
-        private readonly List<ItemLineaFactura> _lineasFactura = new();
+        private readonly List<DetalleFactura> _lineasFactura = new();
 
-        public frmFacturas(FacturaItem? factura = null)
+        public frmFacturas(Factura? factura = null)
         {
             _facturaExistente = factura;
-            _esSoloLectura = factura != null;
+            _esEdicion = factura != null;
+            _esSoloLectura = factura?.Estado == "Anulada";
 
             Size = new Size(960, 680);
             StartPosition = FormStartPosition.CenterParent;
@@ -293,8 +282,10 @@ namespace GestorInventario.Forms
             BackColor = Color.White;
 
             BuildUI();
-            if (_facturaExistente != null) LlenarDatos();
+            CargarCombos();
+            if (_esEdicion) LlenarDatos();
             else GenerarNumeroConsecutivo();
+            if (_esSoloLectura) BloquearEdicion();
         }
 
         private void BuildUI()
@@ -302,9 +293,10 @@ namespace GestorInventario.Forms
             errValidador = new ErrorProvider { BlinkStyle = ErrorBlinkStyle.NeverBlink };
 
             // Encabezado estándar unificado
-            var header = UIHelper.CreateModalHeader(this,
-                _esSoloLectura ? $"DETALLE DE FACTURA — {_facturaExistente!.NroFactura}" : "ADMINISTRACIÓN DE FACTURAS (NUEVA EMISIÓN)",
-                "🧾");
+            string titulo = !_esEdicion ? "ADMINISTRACIÓN DE FACTURAS (NUEVA EMISIÓN)"
+                : _esSoloLectura ? $"DETALLE DE FACTURA ANULADA — {_facturaExistente!.NroFactura}"
+                : $"EDITAR FACTURA — {_facturaExistente!.NroFactura}";
+            var header = UIHelper.CreateModalHeader(this, titulo, "🧾");
             Controls.Add(header);
 
             // Contenedor General Scrollable
@@ -329,26 +321,19 @@ namespace GestorInventario.Forms
             UIHelper.CreateRoundedTextBox(cardCabecera, "Nro Factura *", out txtNroFactura, 20, 12, 200, 36, readOnly: true);
             UIHelper.CreateRoundedDateTimePicker(cardCabecera, "Fecha Registro *", out dtpFechaRegistro, 240, 12, 200, 36);
 
+            // "Anulada" no se elige aquí: se usa el botón ANULAR de la lista
             UIHelper.CreateRoundedComboBox(cardCabecera, "Estado Factura *", out cboEstadoFactura, 460, 12, 200, 36);
-            cboEstadoFactura.Items.AddRange(new[] { "Emitida", "Pagada", "Pendiente", "Anulada" });
+            cboEstadoFactura.Items.AddRange(new[] { "Emitida", "Pagada", "Pendiente" });
             cboEstadoFactura.SelectedIndex = 1; // Pagada por defecto
 
             UIHelper.CreateRoundedComboBox(cardCabecera, "Empleado / Cajero *", out cboEmpleado, 680, 12, 200, 36);
-            cboEmpleado.Items.AddRange(new[] { "Lorena Correa (Cajera)", "Ana María Torres", "Javier Saldarriaga (Admin)", "Carlos Vendedor" });
-            cboEmpleado.SelectedIndex = 0;
+            cboEmpleado.FormattingEnabled = true;
+            cboEmpleado.Format += (s, e) => { if (e.ListItem is Empleado emp) e.Value = emp.Nombre; };
 
             // Fila 2: Cliente
             UIHelper.CreateRoundedComboBox(cardCabecera, "Cliente Seleccionado *", out cboCliente, 20, 75, 520, 36);
-            cboCliente.Items.AddRange(new[] {
-                "Carlos Andrés Pérez (1020304050)",
-                "María Fernanda Gómez (1030405060)",
-                "Distribuidora Los Andes S.A.S. (900123456-1)",
-                "Juan David Morales (1017894561)",
-                "Tecnología Global S.A. (890123987-4)",
-                "Laura Patricia Restrepo (1035678912)",
-                "Cliente Mostrador / Venta Rápida"
-            });
-            cboCliente.SelectedIndex = 0;
+            cboCliente.FormattingEnabled = true;
+            cboCliente.Format += (s, e) => { if (e.ListItem is Cliente c) e.Value = $"{c.Nombre} ({c.Documento})"; };
 
             cardCabecera.Controls.Add(new Label { Text = "💡 Seleccione el cliente y el cajero asignado a la transacción comercial.", Font = AppFonts.Small, ForeColor = AppColors.TextSecondary, Location = new Point(20, 142), AutoSize = true, BackColor = Color.Transparent });
 
@@ -363,22 +348,18 @@ namespace GestorInventario.Forms
             };
 
             UIHelper.CreateRoundedComboBox(cardAgregar, "Producto a Facturar", out cboProducto, 20, 10, 360, 36);
-            cboProducto.Items.AddRange(new[] {
-                "PRD-001 · Monitor Samsung 24\" ($450,000)",
-                "PRD-002 · Teclado Mecánico RGB ($130,000)",
-                "PRD-003 · Cable HDMI 2m 4K ($22,000)",
-                "PRD-004 · Mouse Inalámbrico 2.4GHz ($58,000)",
-                "PRD-005 · Hub USB 3.0 4 Puertos ($48,000)",
-                "PRD-006 · Disco SSD 500GB SATA ($260,000)"
-            });
-            cboProducto.SelectedIndex = 0;
+            cboProducto.FormattingEnabled = true;
+            cboProducto.Format += (s, e) =>
+            {
+                if (e.ListItem is Producto p)
+                    e.Value = $"{p.Codigo} · {p.Nombre} (${p.PrecioVenta:N0}) — Stock: {p.StockActual}";
+            };
             cboProducto.SelectedIndexChanged += (s, e) => ActualizarPrecioProducto();
 
             UIHelper.CreateRoundedTextBox(cardAgregar, "Cant.", out txtCantidad, 400, 10, 90, 36);
             txtCantidad.Text = "1";
 
             UIHelper.CreateRoundedTextBox(cardAgregar, "Precio Unit.", out txtPrecioUnitario, 510, 10, 140, 36, readOnly: true);
-            ActualizarPrecioProducto();
 
             btnAgregarItem = UIHelper.CreatePrimaryButton("＋ AGREGAR", new Size(110, 36), new Point(665, 30));
             btnAgregarItem.Click += (s, e) => AgregarProductoDetalle();
@@ -449,48 +430,76 @@ namespace GestorInventario.Forms
 
             mainContent.Controls.Add(cardTotales);
             Controls.Add(mainContent);
+        }
 
-            // Agregar un producto inicial por defecto para demostración
-            if (_facturaExistente == null)
+        /// <summary>Carga clientes, empleados y productos desde la base de datos.</summary>
+        private void CargarCombos()
+        {
+            try
             {
-                _lineasFactura.Add(new ItemLineaFactura { Codigo = "PRD-001", Descripcion = "Monitor Samsung 24\"", Cantidad = 1, PrecioUnitario = 450000 });
-                RefrescarGridDetalle();
+                _clientes = new ClienteService().ObtenerTodos();
+                _empleados = new EmpleadoService().ObtenerTodos();
+                _productos = new ProductoService().ObtenerTodos();
             }
+            catch (Exception ex)
+            {
+                ModernMessageBox.ShowError(ex.Message, "Error al cargar datos");
+            }
+
+            cboCliente.Items.AddRange(_clientes.ToArray<object>());
+            cboEmpleado.Items.AddRange(_empleados.ToArray<object>());
+            cboProducto.Items.AddRange(_productos.ToArray<object>());
+
+            if (cboProducto.Items.Count > 0) cboProducto.SelectedIndex = 0;
+            if (!_esEdicion && cboEmpleado.Items.Count > 0) cboEmpleado.SelectedIndex = 0;
         }
 
         private void ActualizarPrecioProducto()
         {
-            if (cboProducto.SelectedIndex == 0) txtPrecioUnitario.Text = "450000";
-            else if (cboProducto.SelectedIndex == 1) txtPrecioUnitario.Text = "130000";
-            else if (cboProducto.SelectedIndex == 2) txtPrecioUnitario.Text = "22000";
-            else if (cboProducto.SelectedIndex == 3) txtPrecioUnitario.Text = "58000";
-            else if (cboProducto.SelectedIndex == 4) txtPrecioUnitario.Text = "48000";
-            else if (cboProducto.SelectedIndex == 5) txtPrecioUnitario.Text = "260000";
+            if (cboProducto.SelectedItem is Producto p)
+                txtPrecioUnitario.Text = p.PrecioVenta.ToString("0");
         }
 
         private void AgregarProductoDetalle()
         {
             errValidador.Clear();
+            if (cboProducto.SelectedItem is not Producto producto)
+            {
+                errValidador.SetError(cboProducto, "Seleccione un producto.");
+                return;
+            }
             if (!int.TryParse(txtCantidad.Text, out int cant) || cant <= 0)
             {
                 errValidador.SetError(txtCantidad, "Ingrese una cantidad válida mayor a 0.");
                 return;
             }
 
-            decimal.TryParse(txtPrecioUnitario.Text, out decimal precio);
-            string prodTexto = cboProducto.SelectedItem?.ToString() ?? "";
-            var partes = prodTexto.Split('·');
-            string codigo = partes.Length > 0 ? partes[0].Trim() : "PRD";
-            string desc = partes.Length > 1 ? partes[1].Split('(')[0].Trim() : prodTexto;
-
-            _lineasFactura.Add(new ItemLineaFactura
+            // Stock disponible = stock actual + lo que esta misma factura ya tenía
+            // descontado (al editar) − lo que ya está agregado en el detalle
+            int yaFacturado = _facturaExistente?.Detalles.Where(d => d.ProductoId == producto.Id).Sum(d => d.Cantidad) ?? 0;
+            var lineaExistente = _lineasFactura.FirstOrDefault(l => l.ProductoId == producto.Id);
+            int enDetalle = lineaExistente?.Cantidad ?? 0;
+            int disponible = producto.StockActual + yaFacturado - enDetalle;
+            if (cant > disponible)
             {
-                Codigo = codigo,
-                Descripcion = desc,
-                Cantidad = cant,
-                PrecioUnitario = precio
-            });
+                errValidador.SetError(txtCantidad, $"Stock insuficiente. Disponible: {disponible}.");
+                return;
+            }
 
+            // Si el producto ya está en el detalle, se suma la cantidad
+            if (lineaExistente != null)
+                lineaExistente.Cantidad += cant;
+            else
+                _lineasFactura.Add(new DetalleFactura
+                {
+                    ProductoId = producto.Id,
+                    CodigoProducto = producto.Codigo,
+                    NombreProducto = producto.Nombre,
+                    Cantidad = cant,
+                    PrecioUnitario = producto.PrecioVenta
+                });
+
+            txtCantidad.Text = "1";
             RefrescarGridDetalle();
         }
 
@@ -517,19 +526,15 @@ namespace GestorInventario.Forms
             int itemNum = 1;
             foreach (var l in _lineasFactura)
             {
-                decimal subtotal = l.Cantidad * l.PrecioUnitario;
-                decimal iva = subtotal * 0.19m;
-                decimal totalLinea = subtotal + iva;
-
                 dgvDetalle.Rows.Add(
                     itemNum++,
-                    l.Codigo,
-                    l.Descripcion,
+                    l.CodigoProducto,
+                    l.NombreProducto,
                     l.Cantidad,
                     $"${l.PrecioUnitario:N0}",
-                    $"${subtotal:N0}",
-                    $"${iva:N0}",
-                    $"${totalLinea:N0}"
+                    $"${l.Subtotal:N0}",
+                    $"${l.Iva:N0}",
+                    $"${l.TotalLinea:N0}"
                 );
             }
             RecalcularTotales();
@@ -537,19 +542,19 @@ namespace GestorInventario.Forms
 
         private void RecalcularTotales()
         {
-            decimal sumaSubtotal = _lineasFactura.Sum(l => l.Cantidad * l.PrecioUnitario);
-            decimal sumaIva = sumaSubtotal * 0.19m;
+            var factura = new Factura { Detalles = _lineasFactura };
             decimal.TryParse(txtDescuento.Text, out decimal desc);
-            decimal totalFactura = Math.Max(0, (sumaSubtotal + sumaIva) - desc);
+            factura.Descuento = desc;
+            FacturaService.CalcularTotales(factura);
 
-            txtTotalIva.Text = $"${sumaIva:N0}";
-            txtTotalFactura.Text = $"${totalFactura:N0}";
+            txtTotalIva.Text = $"${factura.TotalIva:N0}";
+            txtTotalFactura.Text = $"${factura.TotalFactura:N0}";
         }
 
         private void GenerarNumeroConsecutivo()
         {
-            var rand = new Random();
-            txtNroFactura.Text = $"FAC-{rand.Next(10100, 99999)}";
+            try { txtNroFactura.Text = _service.SiguienteNumero(); }
+            catch (Exception ex) { ModernMessageBox.ShowError(ex.Message, "Facturación"); }
             dtpFechaRegistro.Value = DateTime.Now;
         }
 
@@ -558,17 +563,34 @@ namespace GestorInventario.Forms
             var f = _facturaExistente!;
             txtNroFactura.Text = f.NroFactura;
             dtpFechaRegistro.Value = f.FechaRegistro;
-            txtDescuento.Text = f.Descuento.ToString("N0");
-            txtTotalIva.Text = $"${f.TotalIva:N0}";
-            txtTotalFactura.Text = $"${f.TotalFactura:N0}";
+            txtDescuento.Text = f.Descuento.ToString("0");
 
-            if (cboEstadoFactura.Items.Contains(f.Estado))
-                cboEstadoFactura.SelectedItem = f.Estado;
+            if (f.Estado == "Anulada") cboEstadoFactura.Items.Add("Anulada");
+            cboEstadoFactura.SelectedItem = f.Estado;
 
-            // Mock detalle existente
+            cboCliente.SelectedItem = _clientes.FirstOrDefault(c => c.Id == f.ClienteId);
+            cboEmpleado.SelectedItem = _empleados.FirstOrDefault(e => e.Id == f.EmpleadoId);
+
             _lineasFactura.Clear();
-            _lineasFactura.Add(new ItemLineaFactura { Codigo = "PRD-001", Descripcion = "Venta General Facturada", Cantidad = 1, PrecioUnitario = f.TotalFactura - f.TotalIva });
+            foreach (var d in f.Detalles)
+                _lineasFactura.Add(new DetalleFactura
+                {
+                    ProductoId = d.ProductoId,
+                    CodigoProducto = d.CodigoProducto,
+                    NombreProducto = d.NombreProducto,
+                    Cantidad = d.Cantidad,
+                    PrecioUnitario = d.PrecioUnitario
+                });
             RefrescarGridDetalle();
+        }
+
+        /// <summary>Una factura anulada solo se consulta, no se modifica.</summary>
+        private void BloquearEdicion()
+        {
+            foreach (Control c in new Control[] { dtpFechaRegistro, cboCliente, cboEstadoFactura, cboEmpleado,
+                                                  cboProducto, txtCantidad, txtDescuento, btnAgregarItem, btnQuitarItem })
+                c.Enabled = false;
+            btnActualizar.Visible = false;
         }
 
         private void BtnActualizar_Click(object? sender, EventArgs e)
@@ -576,15 +598,23 @@ namespace GestorInventario.Forms
             errValidador.Clear();
             bool hayErrores = false;
 
-            if (cboCliente.SelectedIndex < 0)
+            var cliente = cboCliente.SelectedItem as Cliente;
+            if (cliente == null)
             {
                 errValidador.SetError(cboCliente, "Debe seleccionar un cliente para la factura.");
                 hayErrores = true;
             }
 
-            if (cboEmpleado.SelectedIndex < 0)
+            var empleado = cboEmpleado.SelectedItem as Empleado;
+            if (empleado == null)
             {
                 errValidador.SetError(cboEmpleado, "Debe seleccionar el empleado/cajero.");
+                hayErrores = true;
+            }
+
+            if (!decimal.TryParse(txtDescuento.Text, out decimal desc) || desc < 0)
+            {
+                errValidador.SetError(txtDescuento, "Ingrese un descuento numérico mayor o igual a 0.");
                 hayErrores = true;
             }
 
@@ -600,48 +630,30 @@ namespace GestorInventario.Forms
                 return;
             }
 
-            decimal.TryParse(txtDescuento.Text, out decimal desc);
-            decimal sumaSubtotal = _lineasFactura.Sum(l => l.Cantidad * l.PrecioUnitario);
-            decimal totalIva = sumaSubtotal * 0.19m;
-            decimal totalFactura = Math.Max(0, (sumaSubtotal + totalIva) - desc);
-
-            var facturaObj = new FacturaItem
+            var factura = new Factura
             {
+                Id = _facturaExistente?.Id ?? 0,
                 NroFactura = txtNroFactura.Text,
                 FechaRegistro = dtpFechaRegistro.Value,
-                Cliente = cboCliente.SelectedItem?.ToString() ?? "",
-                Empleado = cboEmpleado.SelectedItem?.ToString() ?? "",
+                ClienteId = cliente!.Id,
+                EmpleadoId = empleado!.Id,
                 Estado = cboEstadoFactura.SelectedItem?.ToString() ?? "Emitida",
                 Descuento = desc,
-                TotalIva = totalIva,
-                TotalFactura = totalFactura
+                Detalles = _lineasFactura
             };
 
-            FacturaGuardada?.Invoke(facturaObj);
-            ModernMessageBox.ShowSuccess($"¡Factura {facturaObj.NroFactura} procesada exitosamente!\nTotal: ${facturaObj.TotalFactura:N0}", "Facturación Exitosa");
-            Close();
+            try
+            {
+                _service.Guardar(factura);
+                ModernMessageBox.ShowSuccess($"¡Factura {factura.NroFactura} procesada exitosamente!\nTotal: ${factura.TotalFactura:N0}", "Facturación Exitosa");
+                FacturaGuardada?.Invoke();
+                Close();
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.ShowError(ex.Message, "Error al guardar");
+            }
         }
-    }
-
-    public class FacturaItem
-    {
-        public int Id { get; set; }
-        public string NroFactura { get; set; } = string.Empty;
-        public DateTime FechaRegistro { get; set; }
-        public string Cliente { get; set; } = string.Empty;
-        public string Empleado { get; set; } = string.Empty;
-        public string Estado { get; set; } = "Emitida";
-        public decimal Descuento { get; set; }
-        public decimal TotalIva { get; set; }
-        public decimal TotalFactura { get; set; }
-    }
-
-    public class ItemLineaFactura
-    {
-        public string Codigo { get; set; } = string.Empty;
-        public string Descripcion { get; set; } = string.Empty;
-        public int Cantidad { get; set; }
-        public decimal PrecioUnitario { get; set; }
     }
 
     // =========================================================================
@@ -660,6 +672,7 @@ namespace GestorInventario.Forms
         private Button btnSalir = null!;
         private DataGridView dgvInforme = null!;
         private Label lblTituloReporte = null!;
+        private readonly FacturaService _facturaService = new();
 
         public frmInformes()
         {
@@ -790,11 +803,24 @@ namespace GestorInventario.Forms
                 dgvInforme.Columns.Add("Total", "TOTAL FACTURA");
                 dgvInforme.Columns.Add("Estado", "ESTADO");
 
-                dgvInforme.Rows.Add("FAC-00101", "25/08/2026", "Carlos Andrés Pérez", "Lorena Correa", "$500,000", "$95,000", "$595,000", "Pagada");
-                dgvInforme.Rows.Add("FAC-00102", "26/08/2026", "Distribuidora Los Andes", "Ana María Torres", "$1,300,000", "$247,000", "$1,547,000", "Pagada");
-                dgvInforme.Rows.Add("FAC-00103", "27/08/2026", "María Fernanda Gómez", "Lorena Correa", "$230,000", "$43,700", "$273,700", "Pendiente");
-                dgvInforme.Rows.Add("FAC-00104", "28/08/2026", "Tecnología Global S.A.", "Javier Saldarriaga", "$2,000,000", "$380,000", "$2,380,000", "Pagada");
-                dgvInforme.Rows.Add("TOTAL", "", "4 Facturas emitidas", "", "$4,030,000", "$765,700", "$4,795,700", "OK");
+                try
+                {
+                    var facturas = _facturaService.ObtenerPorRango(dtpFechaInicial.Value, dtpFechaFinal.Value);
+                    foreach (var f in facturas)
+                        dgvInforme.Rows.Add(f.NroFactura, f.FechaRegistro.ToString("dd/MM/yyyy"), f.Cliente, f.Empleado,
+                            $"${f.Subtotal:N0}", $"${f.TotalIva:N0}", $"${f.TotalFactura:N0}", f.Estado);
+
+                    // Las anuladas se listan pero no suman en el total
+                    var validas = facturas.Where(f => f.Estado != "Anulada").ToList();
+                    if (facturas.Count > 0)
+                        dgvInforme.Rows.Add("TOTAL", "", $"{validas.Count} facturas válidas", "",
+                            $"${validas.Sum(f => f.Subtotal):N0}", $"${validas.Sum(f => f.TotalIva):N0}",
+                            $"${validas.Sum(f => f.TotalFactura):N0}", "");
+                }
+                catch (Exception ex)
+                {
+                    ModernMessageBox.ShowError(ex.Message, "Informes");
+                }
             }
             else if (tipo == 1) // Productos Más Vendidos
             {
@@ -806,11 +832,16 @@ namespace GestorInventario.Forms
                 dgvInforme.Columns.Add("Vendidas", "UNIDADES VENDIDAS");
                 dgvInforme.Columns.Add("Ingreso", "INGRESOS TOTALES");
 
-                dgvInforme.Rows.Add("1", "PRD-001", "Monitor Samsung 24\"", "Electrónica", "38 un.", "$17,100,000");
-                dgvInforme.Rows.Add("2", "PRD-006", "Disco SSD 500GB", "Almacenamiento", "29 un.", "$7,540,000");
-                dgvInforme.Rows.Add("3", "PRD-002", "Teclado Mecánico RGB", "Periféricos", "24 un.", "$3,120,000");
-                dgvInforme.Rows.Add("4", "PRD-004", "Mouse Inalámbrico", "Periféricos", "21 un.", "$1,218,000");
-                dgvInforme.Rows.Add("5", "PRD-003", "Cable HDMI 2m", "Cables", "45 un.", "$990,000");
+                try
+                {
+                    int pos = 1;
+                    foreach (var p in _facturaService.ObtenerMasVendidos(dtpFechaInicial.Value, dtpFechaFinal.Value))
+                        dgvInforme.Rows.Add(pos++, p.Codigo, p.Nombre, p.Categoria, $"{p.UnidadesVendidas} un.", $"${p.Ingresos:N0}");
+                }
+                catch (Exception ex)
+                {
+                    ModernMessageBox.ShowError(ex.Message, "Informes");
+                }
             }
             else // Otros informes
             {

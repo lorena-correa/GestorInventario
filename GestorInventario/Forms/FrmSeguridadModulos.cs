@@ -17,8 +17,6 @@ namespace GestorInventario.Forms
         private DataGridView dgvEmpleados = null!;
         private TextBox txtBuscar = null!;
         private Button btnNuevo = null!;
-        private Button btnEditar = null!;
-        private Button btnBorrar = null!;
         private readonly EmpleadoService _service = new();
 
         private Empleado? _empleadoSeleccionado;
@@ -86,44 +84,10 @@ namespace GestorInventario.Forms
             btnNuevo.Click += (s, e) => AbrirFormularioEmpleado(null);
             actionsPanel.Controls.Add(btnNuevo);
 
-            btnEditar = UIHelper.CreateEditButton("✏️ EDITAR", new Size(95, 38), new Point(0, 0));
-            btnEditar.Margin = new Padding(6, 0, 0, 0);
-            btnEditar.Click += (s, e) =>
-            {
-                if (_empleadoSeleccionado == null)
-                {
-                    ModernMessageBox.ShowWarning("Por favor seleccione un empleado de la lista.", "Selección Requerida");
-                    return;
-                }
-                AbrirFormularioEmpleado(_empleadoSeleccionado);
-            };
-            actionsPanel.Controls.Add(btnEditar);
-
-            btnBorrar = UIHelper.CreateDangerButton("🗑 BORRAR", new Size(95, 38), new Point(0, 0));
-            btnBorrar.Margin = new Padding(6, 0, 0, 0);
-            btnBorrar.Click += (s, e) =>
-            {
-                if (_empleadoSeleccionado == null)
-                {
-                    ModernMessageBox.ShowWarning("Por favor seleccione un empleado de la lista para eliminar.", "Selección Requerida");
-                    return;
-                }
-                if (ModernMessageBox.ShowConfirm($"¿Eliminar al empleado {_empleadoSeleccionado.Nombre}?", "Confirmar Eliminación", "Eliminar") == DialogResult.Yes)
-                {
-                    try
-                    {
-                        _service.Eliminar(_empleadoSeleccionado.Id);
-                        _empleadoSeleccionado = null;
-                        CargarDatos(txtBuscar.Text);
-                        ModernMessageBox.ShowSuccess("Empleado eliminado con éxito.");
-                    }
-                    catch (Exception ex)
-                    {
-                        ModernMessageBox.ShowError(ex.Message, "Error al eliminar");
-                    }
-                }
-            };
-            actionsPanel.Controls.Add(btnBorrar);
+            var btnSalir = UIHelper.CreateSecondaryButton("SALIR", new Size(90, 38), new Point(0, 0));
+            btnSalir.Margin = new Padding(6, 0, 0, 0);
+            btnSalir.Click += (s, e) => FrmMain.CerrarModulo(this);
+            actionsPanel.Controls.Add(btnSalir);
 
             toolbarCard.Controls.Add(actionsPanel);
             Controls.Add(toolbarCard);
@@ -147,11 +111,15 @@ namespace GestorInventario.Forms
             dgvEmpleados.Columns.Add("FechaIngreso", "F. INGRESO");
             dgvEmpleados.Columns.Add("Estado", "ESTADO");
 
+            dgvEmpleados.Columns["ID"].AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
             dgvEmpleados.Columns["ID"].Width = 60;
             dgvEmpleados.Columns["Nombre"].Width = 220;
             dgvEmpleados.Columns["Documento"].Width = 130;
             dgvEmpleados.Columns["Rol"].Width = 190;
             dgvEmpleados.Columns["FechaIngreso"].Width = 120;
+
+            // Botones Editar / Borrar dentro del grid
+            UIHelper.AddGridActionButtons<Empleado>(dgvEmpleados, AbrirFormularioEmpleado, BorrarEmpleado);
 
             dgvEmpleados.SelectionChanged += (s, e) =>
             {
@@ -208,6 +176,24 @@ namespace GestorInventario.Forms
             var form = new frmEmpleados(emp);
             form.EmpleadoGuardado += () => CargarDatos(txtBuscar.Text);
             form.ShowDialog(this);
+        }
+
+        private void BorrarEmpleado(Empleado emp)
+        {
+            if (ModernMessageBox.ShowConfirm($"¿Eliminar al empleado {emp.Nombre}?", "Confirmar Eliminación", "Eliminar") == DialogResult.Yes)
+            {
+                try
+                {
+                    _service.Eliminar(emp.Id);
+                    _empleadoSeleccionado = null;
+                    CargarDatos(txtBuscar.Text);
+                    ModernMessageBox.ShowSuccess("Empleado eliminado con éxito.");
+                }
+                catch (Exception ex)
+                {
+                    ModernMessageBox.ShowError(ex.Message, "Error al eliminar");
+                }
+            }
         }
     }
 

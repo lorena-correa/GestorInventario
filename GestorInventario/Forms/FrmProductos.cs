@@ -81,23 +81,10 @@ namespace GestorInventario.Forms
             btnAgregar.Click += (s, e) => OpenProductForm(null);
             actionsPanel.Controls.Add(btnAgregar);
 
-            var btnEditar = UIHelper.CreateEditButton("✏️ EDITAR", new Size(95, 38), new Point(0, 0));
-            btnEditar.Margin = new Padding(6, 0, 0, 0);
-            btnEditar.Click += (s, e) =>
-            {
-                if (_selectedProduct == null) { ShowSelectWarning(); return; }
-                OpenProductForm(_selectedProduct);
-            };
-            actionsPanel.Controls.Add(btnEditar);
-
-            var btnEliminar = UIHelper.CreateDangerButton("🗑 BORRAR", new Size(95, 38), new Point(0, 0));
-            btnEliminar.Margin = new Padding(6, 0, 0, 0);
-            btnEliminar.Click += (s, e) =>
-            {
-                if (_selectedProduct == null) { ShowSelectWarning(); return; }
-                ConfirmDelete();
-            };
-            actionsPanel.Controls.Add(btnEliminar);
+            var btnSalir = UIHelper.CreateSecondaryButton("SALIR", new Size(90, 38), new Point(0, 0));
+            btnSalir.Margin = new Padding(6, 0, 0, 0);
+            btnSalir.Click += (s, e) => FrmMain.CerrarModulo(this);
+            actionsPanel.Controls.Add(btnSalir);
 
             toolbarCard.Controls.Add(actionsPanel);
             Controls.Add(toolbarCard);
@@ -113,6 +100,10 @@ namespace GestorInventario.Forms
             dgvProductos = new DataGridView { Dock = DockStyle.Fill };
             UIHelper.StyleDataGridView(dgvProductos);
             SetupColumns();
+
+            // Botones Editar / Borrar dentro del grid
+            UIHelper.AddGridActionButtons<Producto>(dgvProductos, OpenProductForm, ConfirmDelete);
+
             dgvProductos.SelectionChanged += (s, e) =>
             {
                 if (dgvProductos.SelectedRows.Count > 0)
@@ -161,6 +152,8 @@ namespace GestorInventario.Forms
             dgvProductos.Columns["Codigo"].Width = 100;
             dgvProductos.Columns["Stock"].Width = 100;
             dgvProductos.Columns["StockMin"].Width = 100;
+            dgvProductos.Columns["Stock"].MinimumWidth = 90;
+            dgvProductos.Columns["StockMin"].MinimumWidth = 90;
             dgvProductos.Columns["Estado"].Width = 90;
         }
 
@@ -206,13 +199,13 @@ namespace GestorInventario.Forms
             frm.ShowDialog(this);
         }
 
-        private void ConfirmDelete()
+        private void ConfirmDelete(Producto product)
         {
-            if (ModernMessageBox.ShowConfirm($"¿Eliminar el producto \"{_selectedProduct!.Nombre}\"?", "Confirmar eliminación", "Eliminar") == DialogResult.Yes)
+            if (ModernMessageBox.ShowConfirm($"¿Eliminar el producto \"{product.Nombre}\"?", "Confirmar eliminación", "Eliminar") == DialogResult.Yes)
             {
                 try
                 {
-                    _service.Eliminar(_selectedProduct.Id);
+                    _service.Eliminar(product.Id);
                     _selectedProduct = null;
                     LoadData();
                     ModernMessageBox.ShowSuccess("Producto eliminado correctamente.");
@@ -223,9 +216,6 @@ namespace GestorInventario.Forms
                 }
             }
         }
-
-        private void ShowSelectWarning() =>
-            ModernMessageBox.ShowInfo("Selecciona un producto de la lista.", "Selección requerida");
     }
 
     // Alias para la guía

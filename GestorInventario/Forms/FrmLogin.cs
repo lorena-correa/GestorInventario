@@ -96,8 +96,6 @@ namespace GestorInventario.Forms
             lnkRecuperar.LinkClicked += (s, e) => new FrmRecuperarContrasena().ShowDialog(this);
             rightPanel.Controls.Add(lnkRecuperar);
 
-            // Hint
-            rightPanel.Controls.Add(new Label { Text = "Acceso demostración: admin / admin", Font = AppFonts.Small, ForeColor = Color.FromArgb(150, 107, 114, 128), Location = new Point(60, 460), AutoSize = true, BackColor = Color.Transparent });
 
             // Enter key
             txtUsuario.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter) txtPassword.Focus(); };

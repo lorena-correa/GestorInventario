@@ -90,6 +90,49 @@ namespace GestorInventario.Models
         public DateTime CreadoEn { get; set; }
     }
 
+    public class Factura
+    {
+        public int Id { get; set; }
+        public string NroFactura { get; set; } = string.Empty;
+        public DateTime FechaRegistro { get; set; }
+        public int ClienteId { get; set; }
+        public string Cliente { get; set; } = string.Empty;
+        public int EmpleadoId { get; set; }
+        public string Empleado { get; set; } = string.Empty;
+        public string Estado { get; set; } = "Emitida";
+        public decimal Subtotal { get; set; }
+        public decimal Descuento { get; set; }
+        public decimal TotalIva { get; set; }
+        public decimal TotalFactura { get; set; }
+        public List<DetalleFactura> Detalles { get; set; } = new();
+    }
+
+    public class DetalleFactura
+    {
+        public int Id { get; set; }
+        public int FacturaId { get; set; }
+        public int ProductoId { get; set; }
+        public string CodigoProducto { get; set; } = string.Empty;
+        public string NombreProducto { get; set; } = string.Empty;
+        public int Cantidad { get; set; }
+        public decimal PrecioUnitario { get; set; }
+
+        // Valores calculados de la línea (IVA 19%)
+        public decimal Subtotal => Cantidad * PrecioUnitario;
+        public decimal Iva => Subtotal * 0.19m;
+        public decimal TotalLinea => Subtotal + Iva;
+    }
+
+    // Filas de los informes de facturación
+    public class ProductoVendido
+    {
+        public string Codigo { get; set; } = string.Empty;
+        public string Nombre { get; set; } = string.Empty;
+        public string Categoria { get; set; } = string.Empty;
+        public int UnidadesVendidas { get; set; }
+        public decimal Ingresos { get; set; }
+    }
+
     public class TipoMovimiento
     {
         public int Id { get; set; }

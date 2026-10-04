@@ -971,4 +971,329 @@ namespace GestorInventario.Repositories
             return Convert.ToInt32(cmd.ExecuteScalar());
         }
     }
+
+    // ══════════════════════════════════════════════════════════
+    //  FACTURA REPOSITORY (maestro tb_facturas + detalle tb_detalle_factura)
+    // ══════════════════════════════════════════════════════════
+    public class FacturaRepository : BaseRepository
+    {
+        private const string SelectFactura =
+            @"SELECT f.id, f.nro_factura, f.fecha_registro,
+                     f.cliente_id, c.nombre AS cliente,
+                     f.empleado_id, e.nombre AS empleado,
+                     f.estado, f.subtotal, f.descuento, f.total_iva, f.total_factura
+              FROM tb_facturas f
+              JOIN tb_clientes  c ON f.cliente_id  = c.id
+              JOIN tb_empleados e ON f.empleado_id = e.id";
+
+        public List<Factura> GetAll()
+        {
+            var lista = new List<Factura>();
+            using var conn = GetConnection();
+            using var cmd = new NpgsqlCommand(SelectFactura + " ORDER BY f.fecha_registro DESC, f.id DESC", conn);
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read()) lista.Add(MapFactura(reader));
+            return lista;
+        }
+
+        public List<Factura> Search(string filtro, string estado)
+        {
+            var lista = new List<Factura>();
+            using var conn = GetConnection();
+            using var cmd = new NpgsqlCommand(SelectFactura +
+                @" WHERE (@estado = 'Todos' OR f.estado = @estado)
+                     AND (f.nro_factura ILIKE @f OR c.nombre ILIKE @f OR e.nombre ILIKE @f)
+                   ORDER BY f.fecha_registro DESC, f.id DESC", conn);
+            cmd.Parameters.AddWithValue("estado", estado);
+            cmd.Parameters.AddWithValue("f", $"%{filtro}%");
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read()) lista.Add(MapFactura(reader));
+            return lista;
+        }
+
+        /// <summary>Devuelve la factura con sus líneas de detalle.</summary>
+        public Factura? GetById(int id)
+        {
+            using var conn = GetConnection();
+            Factura? factura;
+            using (var cmd = new NpgsqlCommand(SelectFactura + " WHERE f.id = @id", conn))
+            {
+                cmd.Parameters.AddWithValue("id", id);
+                using var reader = cmd.ExecuteReader();
+                if (!reader.Read()) return null;
+                factura = MapFactura(reader);
+            }
+
+            using (var cmd = new NpgsqlCommand(
+                @"SELECT d.id, d.factura_id, d.producto_id, p.codigo, p.nombre,
+                         d.cantidad, d.precio_unitario
+                  FROM tb_detalle_factura d
+                  JOIN tb_productos p ON d.producto_id = p.id
+                  WHERE d.factura_id = @id
+                  ORDER BY d.id", conn))
+            {
+                cmd.Parameters.AddWithValue("id", id);
+                using var reader = cmd.ExecuteReader();
+                while (reader.Read())
+                {
+                    factura.Detalles.Add(new DetalleFactura
+                    {
+                        Id = reader.GetInt32(0),
+                        FacturaId = reader.GetInt32(1),
+                        ProductoId = reader.GetInt32(2),
+                        CodigoProducto = reader.GetString(3),
+                        NombreProducto = reader.GetString(4),
+                        Cantidad = reader.GetInt32(5),
+                        PrecioUnitario = reader.GetDecimal(6)
+                    });
+                }
+            }
+            return factura;
+        }
+
+        /// <summary>Calcula el siguiente consecutivo con formato FAC-00001.</summary>
+        public string GetSiguienteNumero()
+        {
+            using var conn = GetConnection();
+            using var cmd = new NpgsqlCommand("SELECT COALESCE(MAX(id), 0) + 1 FROM tb_facturas", conn);
+            int siguiente = Convert.ToInt32(cmd.ExecuteScalar());
+            return $"FAC-{siguiente:D5}";
+        }
+
+        /// <summary>
+        /// Inserta encabezado + detalle y descuenta el stock, todo en una
+        /// transacción: si algo falla (p. ej. stock insuficiente) no se guarda nada.
+        /// </summary>
+        public int Create(Factura f)
+        {
+            using var conn = GetConnection();
+            using var tx = conn.BeginTransaction();
+            try
+            {
+                using var cmd = new NpgsqlCommand(
+                    @"INSERT INTO tb_facturas
+                        (nro_factura, fecha_registro, cliente_id, empleado_id, estado,
+                         subtotal, descuento, total_iva, total_factura)
+                      VALUES (@nro, @fecha, @cliente, @empleado, @estado,
+                              @subtotal, @descuento, @iva, @total)
+                      RETURNING id", conn, tx);
+                AgregarParametrosEncabezado(cmd, f);
+                cmd.Parameters.AddWithValue("nro", f.NroFactura);
+                f.Id = Convert.ToInt32(cmd.ExecuteScalar());
+
+                InsertarDetalles(conn, tx, f);
+                tx.Commit();
+                return f.Id;
+            }
+            catch
+            {
+                tx.Rollback();
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Modifica la factura: devuelve al inventario el stock de las líneas
+        /// anteriores, las borra e inserta las nuevas descontando de nuevo.
+        /// </summary>
+        public bool Update(Factura f)
+        {
+            using var conn = GetConnection();
+            using var tx = conn.BeginTransaction();
+            try
+            {
+                if (ObtenerEstado(conn, tx, f.Id) == "Anulada")
+                    throw new InvalidOperationException("No se puede modificar una factura anulada.");
+
+                DevolverStock(conn, tx, f.Id);
+                using (var del = new NpgsqlCommand(
+                    "DELETE FROM tb_detalle_factura WHERE factura_id = @id", conn, tx))
+                {
+                    del.Parameters.AddWithValue("id", f.Id);
+                    del.ExecuteNonQuery();
+                }
+
+                using (var cmd = new NpgsqlCommand(
+                    @"UPDATE tb_facturas
+                      SET fecha_registro = @fecha,
+                          cliente_id     = @cliente,
+                          empleado_id    = @empleado,
+                          estado         = @estado,
+                          subtotal       = @subtotal,
+                          descuento      = @descuento,
+                          total_iva      = @iva,
+                          total_factura  = @total
+                      WHERE id = @id", conn, tx))
+                {
+                    AgregarParametrosEncabezado(cmd, f);
+                    cmd.Parameters.AddWithValue("id", f.Id);
+                    cmd.ExecuteNonQuery();
+                }
+
+                InsertarDetalles(conn, tx, f);
+                tx.Commit();
+                return true;
+            }
+            catch
+            {
+                tx.Rollback();
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Retiro lógico: la factura queda en estado "Anulada" (no se borra,
+        /// por trazabilidad contable) y el stock vendido regresa al inventario.
+        /// </summary>
+        public bool Anular(int id)
+        {
+            using var conn = GetConnection();
+            using var tx = conn.BeginTransaction();
+            try
+            {
+                if (ObtenerEstado(conn, tx, id) == "Anulada")
+                    throw new InvalidOperationException("La factura ya se encuentra anulada.");
+
+                DevolverStock(conn, tx, id);
+                using var cmd = new NpgsqlCommand(
+                    "UPDATE tb_facturas SET estado = 'Anulada' WHERE id = @id", conn, tx);
+                cmd.Parameters.AddWithValue("id", id);
+                bool ok = cmd.ExecuteNonQuery() > 0;
+                tx.Commit();
+                return ok;
+            }
+            catch
+            {
+                tx.Rollback();
+                throw;
+            }
+        }
+
+        // ── Informes ────────────────────────────────────────────
+        public List<Factura> GetPorRangoFechas(DateTime desde, DateTime hasta)
+        {
+            var lista = new List<Factura>();
+            using var conn = GetConnection();
+            using var cmd = new NpgsqlCommand(SelectFactura +
+                @" WHERE f.fecha_registro >= @desde AND f.fecha_registro < @hasta
+                   ORDER BY f.fecha_registro", conn);
+            cmd.Parameters.AddWithValue("desde", desde.Date);
+            cmd.Parameters.AddWithValue("hasta", hasta.Date.AddDays(1));
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read()) lista.Add(MapFactura(reader));
+            return lista;
+        }
+
+        public List<ProductoVendido> GetProductosMasVendidos(DateTime desde, DateTime hasta)
+        {
+            var lista = new List<ProductoVendido>();
+            using var conn = GetConnection();
+            using var cmd = new NpgsqlCommand(
+                @"SELECT p.codigo, p.nombre, COALESCE(p.categoria, ''),
+                         SUM(d.cantidad) AS unidades, SUM(d.total_linea) AS ingresos
+                  FROM tb_detalle_factura d
+                  JOIN tb_facturas  f ON d.factura_id  = f.id
+                  JOIN tb_productos p ON d.producto_id = p.id
+                  WHERE f.estado <> 'Anulada'
+                    AND f.fecha_registro >= @desde AND f.fecha_registro < @hasta
+                  GROUP BY p.codigo, p.nombre, p.categoria
+                  ORDER BY unidades DESC", conn);
+            cmd.Parameters.AddWithValue("desde", desde.Date);
+            cmd.Parameters.AddWithValue("hasta", hasta.Date.AddDays(1));
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                lista.Add(new ProductoVendido
+                {
+                    Codigo = reader.GetString(0),
+                    Nombre = reader.GetString(1),
+                    Categoria = reader.GetString(2),
+                    UnidadesVendidas = Convert.ToInt32(reader.GetInt64(3)),
+                    Ingresos = reader.GetDecimal(4)
+                });
+            }
+            return lista;
+        }
+
+        // ── Auxiliares ──────────────────────────────────────────
+        private static void AgregarParametrosEncabezado(NpgsqlCommand cmd, Factura f)
+        {
+            cmd.Parameters.AddWithValue("fecha", f.FechaRegistro);
+            cmd.Parameters.AddWithValue("cliente", f.ClienteId);
+            cmd.Parameters.AddWithValue("empleado", f.EmpleadoId);
+            cmd.Parameters.AddWithValue("estado", f.Estado);
+            cmd.Parameters.AddWithValue("subtotal", f.Subtotal);
+            cmd.Parameters.AddWithValue("descuento", f.Descuento);
+            cmd.Parameters.AddWithValue("iva", f.TotalIva);
+            cmd.Parameters.AddWithValue("total", f.TotalFactura);
+        }
+
+        private static void InsertarDetalles(NpgsqlConnection conn, NpgsqlTransaction tx, Factura f)
+        {
+            foreach (var d in f.Detalles)
+            {
+                // Descuenta stock solo si alcanza; si no, aborta toda la factura
+                using (var stock = new NpgsqlCommand(
+                    @"UPDATE tb_productos
+                      SET stock_actual = stock_actual - @cant
+                      WHERE id = @prod AND stock_actual >= @cant", conn, tx))
+                {
+                    stock.Parameters.AddWithValue("cant", d.Cantidad);
+                    stock.Parameters.AddWithValue("prod", d.ProductoId);
+                    if (stock.ExecuteNonQuery() == 0)
+                        throw new InvalidOperationException(
+                            $"Stock insuficiente para el producto {d.CodigoProducto} - {d.NombreProducto}.");
+                }
+
+                using var cmd = new NpgsqlCommand(
+                    @"INSERT INTO tb_detalle_factura
+                        (factura_id, producto_id, cantidad, precio_unitario, subtotal, iva, total_linea)
+                      VALUES (@factura, @prod, @cant, @precio, @subtotal, @iva, @total)", conn, tx);
+                cmd.Parameters.AddWithValue("factura", f.Id);
+                cmd.Parameters.AddWithValue("prod", d.ProductoId);
+                cmd.Parameters.AddWithValue("cant", d.Cantidad);
+                cmd.Parameters.AddWithValue("precio", d.PrecioUnitario);
+                cmd.Parameters.AddWithValue("subtotal", d.Subtotal);
+                cmd.Parameters.AddWithValue("iva", d.Iva);
+                cmd.Parameters.AddWithValue("total", d.TotalLinea);
+                cmd.ExecuteNonQuery();
+            }
+        }
+
+        private static void DevolverStock(NpgsqlConnection conn, NpgsqlTransaction tx, int facturaId)
+        {
+            using var cmd = new NpgsqlCommand(
+                @"UPDATE tb_productos p
+                  SET stock_actual = p.stock_actual + d.cantidad
+                  FROM tb_detalle_factura d
+                  WHERE d.producto_id = p.id AND d.factura_id = @id", conn, tx);
+            cmd.Parameters.AddWithValue("id", facturaId);
+            cmd.ExecuteNonQuery();
+        }
+
+        private static string ObtenerEstado(NpgsqlConnection conn, NpgsqlTransaction tx, int facturaId)
+        {
+            using var cmd = new NpgsqlCommand(
+                "SELECT estado FROM tb_facturas WHERE id = @id FOR UPDATE", conn, tx);
+            cmd.Parameters.AddWithValue("id", facturaId);
+            return cmd.ExecuteScalar() as string
+                ?? throw new InvalidOperationException("La factura no existe.");
+        }
+
+        private static Factura MapFactura(NpgsqlDataReader r) => new()
+        {
+            Id = r.GetInt32(0),
+            NroFactura = r.GetString(1),
+            FechaRegistro = r.GetDateTime(2),
+            ClienteId = r.GetInt32(3),
+            Cliente = r.GetString(4),
+            EmpleadoId = r.GetInt32(5),
+            Empleado = r.GetString(6),
+            Estado = r.GetString(7),
+            Subtotal = r.GetDecimal(8),
+            Descuento = r.GetDecimal(9),
+            TotalIva = r.GetDecimal(10),
+            TotalFactura = r.GetDecimal(11)
+        };
+    }
 }
